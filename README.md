@@ -19,6 +19,15 @@ Variables d'environnement :
 | `TIKTOK_SIGN_API_KEY` | Clé du service de signature (Euler Stream) utilisée par TikTok-Live-Connector. Optionnelle, l'offre gratuite est limitée. |
 | `DATA_DIR` | Dossier de sauvegarde (réglages + état de la partie). Par défaut `./data`. |
 
+## Branches et sites
+
+| Branche | Rôle | Site Render |
+| --- | --- | --- |
+| `claude/app-fonctionnelle-initiale-1v3pxk` | Version stable, qui marche : on n'y touche plus | `tiktok-pieces` |
+| `claude/corrections-sons-images` | Corrections (fluidité, images, sons, musique) à tester | `tiktok-pieces-test` |
+
+Quand la version de test est validée, on la reporte sur la branche stable.
+
 ## Mise en ligne (Render, offre gratuite)
 
 Le fichier `render.yaml` décrit le service. Depuis le navigateur du téléphone :
@@ -50,6 +59,8 @@ Limites de l'offre gratuite (à revérifier sur render.com/docs/free) :
 - Classement du live, file d'attente, gains affichés « +200 @pseudo », écran d'attente quand personne ne joue.
 - Application de contrôle : Live, Réglages, Cadeaux, Simulateur, Aperçu, statistiques, journal.
 - Catalogue des cadeaux TikTok (chargé depuis TikTok, complété par les cadeaux reçus ou ajouté à la main) : un effet au choix pour chaque cadeau.
+- Bruitages de pièces (tintements synthétisés) et musique d'ambiance calme générée par le jeu : originaux, donc libres de droits ; volumes réglables.
+- Vitesse du jeu et charge du serveur affichées dans l'onglet Live, avec la version déployée.
 - Copie des réglages dans le téléphone (onglet contrôle) et proposition de restauration quand le serveur a redémarré sans ses fichiers (Render gratuit).
 - Sauvegarde continue (toutes les 5 s) et reprise en pause après un plantage.
 - Connecteur TikTok (TikTok-Live-Connector 2.5) branché mais **non testé sur un vrai live**.

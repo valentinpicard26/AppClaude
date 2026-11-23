@@ -79,7 +79,7 @@
       ['shieldSeconds', 'Durée du bouclier (s)'],
       ['powerCooldownSeconds', 'Délai entre deux pouvoirs (s)', 'Un joueur touché trop tôt subit l\'effet à son tour suivant'],
     ],
-    'f-misc': [['sounds', 'Sons'], ['blockedNames', 'Pseudos bloqués', 'Séparés par des virgules']],
+    'f-misc': [['sounds', 'Bruitages'], ['sfxVolume', 'Volume des bruitages (0 à 100)'], ['music', 'Musique d\'ambiance', 'Générée par le jeu : originale et libre de droits'], ['musicVolume', 'Volume de la musique (0 à 100)'], ['blockedNames', 'Pseudos bloqués', 'Séparés par des virgules']],
   };
 
   function renderSettings(cfg) {
@@ -280,6 +280,8 @@
     const S = s.stats;
     $('stats').innerHTML = [['Viewers vus', S.players], ['Actifs', S.active], ['En file', S.queueLength], ['Likes', S.likes], ['Messages', S.comments], ['Cadeaux', S.gifts], ['Diamants', S.diamonds], ['Abonnés', S.follows], ['Objets', s.objects]]
       .map(([l, v]) => `<div class="stat"><b>${Number(v).toLocaleString('fr-FR')}</b><span>${l}</span></div>`).join('');
+    const slow = s.simSpeed < 0.95;
+    $('health').innerHTML = `Version <b>${esc(s.version)}</b> · Vitesse du jeu <b style="color:${slow ? '#ff8a8a' : 'inherit'}">${Math.round(s.simSpeed * 100)} %</b> · Processeur du serveur ${s.cpu} %${slow ? ' — le serveur est trop lent, le jeu tourne au ralenti' : ''}`;
     $('donors').innerHTML = S.donors.length ? S.donors.map((d) => `<li>${esc(d.nickname)} — ${d.diamonds} 💎</li>`).join('') : '<li class="muted">Aucun cadeau</li>';
     $('players').innerHTML = s.players.slice(0, 50).map((p) => `<tr class="${p.active ? '' : 'off'}"><td>${esc(p.nickname)}</td><td>${p.tokens}</td><td>${p.points.toLocaleString('fr-FR')}</td><td>${p.inQueue ? '⏳' : ''}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Aucun joueur</td></tr>';
     $('log').textContent = s.log.slice().reverse().map((l) => new Date(l.t).toLocaleTimeString('fr-FR') + ' ' + l.line).join('\n');
