@@ -161,19 +161,16 @@ class Game {
     return null;
   }
 
-  // Ordre : cadeau précis (identifiant TikTok), puis nom du cadeau, puis tranche de valeur en diamants.
+  // Cadeau lié à un effet : reconnu par son identifiant TikTok, sinon par son nom. Sans liaison : aucun effet.
   findGiftRule(giftName, diamonds, giftId) {
     const rules = this.config.giftRules || [];
     if (giftId !== undefined && giftId !== null && giftId !== '') {
       const byId = rules.find((r) => r.giftId && String(r.giftId) === String(giftId));
       if (byId) return byId;
     }
-    const name = String(giftName || '').trim().toLowerCase();
-    if (name) {
-      const byName = rules.find((r) => r.name && r.name.trim().toLowerCase() === name);
-      if (byName) return byName;
-    }
-    return rules.find((r) => !r.name && !r.giftId && diamonds >= r.minDiamonds && diamonds <= r.maxDiamonds) || null;
+    const name = giftKey(giftName);
+    if (name) return rules.find((r) => r.name && giftKey(r.name) === name) || null;
+    return null;
   }
 
   applyGiftAction(rule, p, now, index) {
@@ -519,9 +516,12 @@ class Game {
   }
 }
 
+// Nom de cadeau comparable : minuscules, sans espaces ni ponctuation (« Whale diving » = « Whale Diving »).
+function giftKey(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, ''); }
+
 function cleanName(s) {
   // Retire les caractères de contrôle et limite la longueur affichée.
   return String(s).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 24) || 'viewer';
 }
 
-module.exports = { Game, SLOT_NAMES, HARMFUL };
+module.exports = { Game, SLOT_NAMES, HARMFUL, giftKey };

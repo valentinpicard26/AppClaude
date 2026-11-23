@@ -112,103 +112,73 @@
   $('save-settings').onclick = async () => { const r = await act('config:update', collectSettings(), 'Réglages enregistrés ✅'); if (r.ok) settingsLoaded = false; };
   $('reset-settings').onclick = async () => { if (confirm('Revenir à tous les réglages par défaut ?')) { await act('config:reset', null, 'Réglages par défaut'); settingsLoaded = false; rulesLoaded = false; } };
 
-  // ---------- Cadeaux ----------
-  const ACTIONS = {
-    shake: 'Secousse', coinRain: 'Pluie de jetons', spawn: 'Objet bonus', queueSkip: 'Passer devant',
-    shield: '🛡️ Bouclier (pour le donateur)', jinxShake: '🌪️ Secousse au lancer', deviate: '↪️ Jeton dévié',
-    loseTokens: '💥 Perte de jetons', steal: '🦹 Vol de jetons', none: 'Rien',
-  };
-  function ruleHtml(r, items) {
-    const spawnOpts = items.filter((i) => i.kind !== 'coin').map((i) => `<option value="${i.key}" ${r.param === i.key ? 'selected' : ''}>${esc(i.label)}</option>`).join('');
-    const paramLabel = { coinRain: 'Nombre de jetons', queueSkip: 'Places (0 = tout devant)', spawn: 'Objet', loseTokens: 'Jetons perdus', steal: 'Jetons volés' }[r.action] || 'Paramètre (inutilisé)';
-    return `<div class="rule">
-      <label class="full">Nom du cadeau (vide = règle par valeur)<input data-r="name" value="${esc(r.name)}"></label>
-      <label>Diamants min<input type="number" data-r="minDiamonds" value="${r.minDiamonds}"></label>
-      <label>Diamants max<input type="number" data-r="maxDiamonds" value="${r.maxDiamonds}"></label>
-      <label>Effet<select data-r="action">${Object.entries(ACTIONS).map(([k, v]) => `<option value="${k}" ${r.action === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
-      <label>${paramLabel}${r.action === 'spawn' ? `<select data-r="param">${spawnOpts}</select>` : `<input type="number" data-r="param" value="${Number(r.param) || 0}">`}</label>
-      <button class="danger full" data-del>Supprimer</button></div>`;
-  }
+  // ---------- Cadeaux : liaisons « cadeau TikTok → effet » ----------
+  // La liste des effets vient du serveur (src/effects.js) : un nouveau pouvoir y apparaît automatiquement.
   let rulesDraft = [];
-  function renderRules() {
-    const items = st.config.items;
-    // Les règles liées à un cadeau précis se règlent dans le catalogue ; ici, les autres.
-    const idx = rulesDraft.map((r, i) => (r.giftId ? -1 : i)).filter((i) => i >= 0);
-    $('rules').innerHTML = idx.map((i) => ruleHtml(rulesDraft[i], items)).join('');
-    $('rules').querySelectorAll('.rule').forEach((el, j) => {
-      const i = idx[j];
-      el.querySelectorAll('[data-r]').forEach((inp) => {
-        inp.onchange = () => {
-          const k = inp.dataset.r;
-          rulesDraft[i][k] = inp.type === 'number' ? Number(inp.value) : inp.value;
-          if (k === 'action') { rulesDraft[i].param = { spawn: 'diamant', coinRain: 5, loseTokens: 2, steal: 3, queueSkip: 3 }[inp.value] ?? 1; renderRules(); }
-        };
-      });
-      el.querySelector('[data-del]').onclick = () => { rulesDraft.splice(i, 1); renderRules(); };
-    });
+  const gkey = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '');
+  function giftInfo(r) {
+    const cat = st?.config.giftCatalog || [];
+    return cat.find((g) => r.giftId && g.id === String(r.giftId)) || cat.find((g) => gkey(g.name) === gkey(r.name)) || { name: r.name, image: '' };
   }
-  // ---------- Catalogue des cadeaux ----------
-  const DEFAULT_PARAM = { spawn: 'diamant', coinRain: 5, loseTokens: 2, steal: 3, queueSkip: 3 };
-  function ruleFor(diamonds, name) {
-    const n = String(name || '').trim().toLowerCase();
-    return rulesDraft.find((r) => !r.giftId && r.name && r.name.trim().toLowerCase() === n)
-      || rulesDraft.find((r) => !r.giftId && !r.name && diamonds >= r.minDiamonds && diamonds <= r.maxDiamonds);
+  function effectOptions(r) {
+    const effects = st?.effects || [];
+    const cur = effects.find((e) => e.action === r.action && String(e.param) === String(r.param));
+    const groups = [...new Set(effects.map((e) => e.group))];
+    let html = cur ? '' : '<option value="" selected>— Effet personnalisé —</option>';
+    for (const gname of groups) {
+      html += `<optgroup label="${esc(gname)}">` + effects.filter((e) => e.group === gname)
+        .map((e) => `<option value="${esc(e.id)}" ${cur && cur.id === e.id ? 'selected' : ''}>${e.icon} ${esc(e.label)}</option>`).join('') + '</optgroup>';
+    }
+    return html;
   }
-  function paramCtl(r, items) {
-    if (r.action === 'spawn') return `<select data-g="param">${items.filter((i) => i.kind !== 'coin').map((i) => `<option value="${i.key}" ${r.param === i.key ? 'selected' : ''}>${esc(i.label)}</option>`).join('')}</select>`;
-    if (['coinRain', 'loseTokens', 'steal', 'queueSkip'].includes(r.action)) return `<input type="number" min="0" data-g="param" value="${Number(r.param) || 0}" title="Nombre">`;
-    return '';
-  }
-  function renderCatalog() {
-    const cat = st.config.giftCatalog || [];
-    const q = $('gifts-search').value.trim().toLowerCase();
-    const onlySet = $('gifts-filter').value === 'set';
-    const items = st.config.items;
-    const rows = cat.filter((g) => (!q || g.name.toLowerCase().includes(q)) && (!onlySet || rulesDraft.some((r) => r.giftId === g.id))).slice(0, 400);
-    if (!cat.length) { $('catalog').innerHTML = '<p class="muted small" style="padding:8px">Catalogue vide : charge-le depuis TikTok, ou ajoute un cadeau à la main.</p>'; return; }
-    $('catalog').innerHTML = rows.map((g) => {
-      const r = rulesDraft.find((x) => x.giftId === g.id);
-      const def = r ? null : ruleFor(g.diamonds, g.name);
-      return `<div class="gift ${r ? 'set' : ''}" data-id="${esc(g.id)}">
-        ${g.image ? `<img src="${esc(g.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="noimg">🎁</span>'}
-        <div class="gname">${esc(g.name)}<small>💎 ${g.diamonds}</small></div>
-        <div class="gctl"><select data-g="action"><option value="">${def ? 'Par valeur : ' + esc(ACTIONS[def.action]) : '— Aucun effet —'}</option>
-          ${Object.entries(ACTIONS).map(([k, v]) => `<option value="${k}" ${r && r.action === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
-          ${r ? paramCtl(r, items) : ''}</div></div>`;
-    }).join('') + (cat.length > rows.length && !q && !onlySet ? '<p class="muted small" style="padding:8px">Utilise la recherche pour voir les autres cadeaux.</p>' : '');
-    $('catalog').querySelectorAll('.gift').forEach((el) => {
-      const g = cat.find((x) => x.id === el.dataset.id);
-      el.querySelector('[data-g=action]').onchange = (e) => {
-        const i = rulesDraft.findIndex((x) => x.giftId === g.id);
-        if (!e.target.value) { if (i >= 0) rulesDraft.splice(i, 1); }
-        else {
-          const rule = { name: g.name, giftId: g.id, minDiamonds: 0, maxDiamonds: 0, action: e.target.value, param: DEFAULT_PARAM[e.target.value] ?? 1 };
-          if (i >= 0) rulesDraft[i] = rule; else rulesDraft.push(rule);
-        }
-        renderCatalog();
-        toast('Pense à enregistrer');
+  function imgHtml(g) { return g.image ? `<img src="${esc(g.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="noimg">🎁</span>'; }
+  function renderLinks() {
+    if (!st) return;
+    $('links').innerHTML = rulesDraft.length ? rulesDraft.map((r, i) => {
+      const g = giftInfo(r);
+      return `<div class="link-row" data-i="${i}">${imgHtml(g)}<span class="gname">${esc(g.name || r.name)}</span>
+        <button class="del" data-del title="Retirer">🗑️</button><select data-eff>${effectOptions(r)}</select></div>`;
+    }).join('') : '<p class="muted small">Aucun cadeau lié pour l\'instant.</p>';
+    $('links').querySelectorAll('.link-row').forEach((el) => {
+      const i = Number(el.dataset.i);
+      el.querySelector('[data-eff]').onchange = (e) => {
+        const eff = (st.effects || []).find((x) => x.id === e.target.value);
+        if (eff) { rulesDraft[i].action = eff.action; rulesDraft[i].param = eff.param; toast('Pense à enregistrer'); }
       };
-      const p = el.querySelector('[data-g=param]');
-      if (p) p.onchange = () => { const r = rulesDraft.find((x) => x.giftId === g.id); r.param = p.type === 'number' ? Number(p.value) : p.value; };
+      el.querySelector('[data-del]').onclick = () => { rulesDraft.splice(i, 1); renderLinks(); toast('Pense à enregistrer'); };
     });
   }
-  $('gifts-search').oninput = renderCatalog;
-  $('gifts-filter').onchange = renderCatalog;
+  function addLink(g) {
+    if (rulesDraft.some((r) => (g.id && r.giftId === g.id) || gkey(r.name) === gkey(g.name))) { toast('Ce cadeau est déjà lié'); return; }
+    rulesDraft.push({ name: g.name, giftId: g.id || '', action: 'shake', param: 1 });
+    $('picker').classList.add('hidden');
+    renderLinks();
+    toast('Choisis son effet, puis enregistre');
+    const rows = $('links').querySelectorAll('.link-row'); rows[rows.length - 1]?.scrollIntoView({ block: 'center' });
+  }
+  function renderPicker() {
+    const q = gkey($('pick-search').value);
+    const linked = new Set(rulesDraft.map((r) => gkey(r.name)));
+    const list = (st?.config.giftCatalog || []).filter((g) => !linked.has(gkey(g.name)) && (!q || gkey(g.name).includes(q))).slice(0, 300);
+    $('pick-list').innerHTML = list.length
+      ? list.map((g) => `<div class="pick" data-id="${esc(g.id)}">${imgHtml(g)}<span>${esc(g.name)}</span><small>${g.diamonds ? g.diamonds + ' pièce' + (g.diamonds > 1 ? 's' : '') + ' TikTok' : ''}</small></div>`).join('')
+      : '<p class="muted small" style="padding:8px">Aucun cadeau trouvé : ajoute-le avec son nom exact ci-dessous.</p>';
+    $('pick-list').querySelectorAll('.pick').forEach((el) => { el.onclick = () => addLink((st.config.giftCatalog || []).find((g) => g.id === el.dataset.id)); });
+  }
+  $('link-add').onclick = () => { $('picker').classList.remove('hidden'); $('pick-search').value = ''; renderPicker(); $('picker').scrollIntoView({ block: 'start' }); };
+  $('pick-cancel').onclick = () => $('picker').classList.add('hidden');
+  $('pick-search').oninput = renderPicker;
+  $('pick-other-ok').onclick = () => {
+    const name = $('pick-other').value.trim();
+    if (!name) return toast('Indique le nom du cadeau');
+    $('pick-other').value = '';
+    addLink({ name, id: '' });
+  };
   $('gifts-fetch').onclick = async () => {
     toast('Chargement des cadeaux…');
     const r = await act('gifts:fetch', { username: $('live-user').value });
-    if (r.ok) { toast(`${r.count} cadeaux chargés ✅`); catalogKey = ''; }
+    if (r.ok) toast(`${r.count} cadeaux chargés ✅`);
   };
-  $('man-add').onclick = async () => {
-    const name = $('man-name').value.trim(); const diamonds = Number($('man-dia').value) || 0;
-    if (!name) return toast('Indique le nom du cadeau');
-    const cat = (st.config.giftCatalog || []).filter((g) => g.name.toLowerCase() !== name.toLowerCase());
-    const r = await act('config:update', { giftCatalog: [...cat, { id: 'manuel-' + name.toLowerCase().replace(/\s+/g, '-'), name, diamonds, image: '' }] }, 'Cadeau ajouté');
-    if (r.ok) { $('man-name').value = ''; $('man-dia').value = ''; catalogKey = ''; }
-  };
-  let catalogKey = '';
-
-  $('add-rule').onclick = () => { rulesDraft.push({ name: '', minDiamonds: 0, maxDiamonds: 0, action: 'shake', param: 1 }); renderRules(); };
   $('save-rules').onclick = async () => { const r = await act('config:update', { giftRules: rulesDraft }, 'Cadeaux enregistrés ✅'); if (r.ok) rulesLoaded = false; };
 
   // ---------- Copie des réglages sur le téléphone ----------
@@ -220,7 +190,7 @@
   $('restore-yes').onclick = async () => {
     const b = readBackup(); if (!b) return;
     const r = await act('config:update', b, 'Réglages restaurés ✅');
-    if (r.ok) { settingsLoaded = false; rulesLoaded = false; catalogKey = ''; $('restore').classList.add('hidden'); }
+    if (r.ok) { settingsLoaded = false; rulesLoaded = false; $('restore').classList.add('hidden'); }
   };
   $('restore-no').onclick = () => { restoreDismissed = true; $('restore').classList.add('hidden'); };
 
@@ -246,22 +216,15 @@
       else if (e === 'leave') simEvent({ type: 'leave' });
     };
   });
-  // Boutons de pouvoirs : envoient le cadeau correspondant à la première règle qui déclenche cet effet.
-  document.querySelectorAll('[data-power]').forEach((b) => {
-    b.onclick = () => {
-      const r = st?.config.giftRules.find((x) => x.action === b.dataset.power);
-      if (!r) return toast('Aucun cadeau n\'est réglé pour cet effet (onglet Cadeaux)');
-      simEvent({ type: 'gift', giftName: r.name || 'Cadeau test', diamondCount: r.name ? 1 : r.minDiamonds, repeatCount: 1 });
-    };
-  });
   $('peaceful').onchange = async (e) => {
     const r = await act('config:update', { peaceful: e.target.checked }, e.target.checked ? '🕊️ Mode paisible activé' : 'Pouvoirs réactivés');
     if (r.ok) settingsLoaded = false;
   };
   $('send-gift').onclick = () => {
-    const name = $('gift-name').value.trim();
-    const g = (st?.config.giftCatalog || []).find((x) => x.name.toLowerCase() === name.toLowerCase());
-    simEvent({ type: 'gift', giftName: name, giftId: g ? g.id : '', diamondCount: g ? g.diamonds : Number($('gift-diamonds').value), repeatCount: Number($('gift-count').value) || 1 });
+    const r = rulesDraft[Number($('sim-gift').value)];
+    if (!r) return toast('Lie d\'abord un cadeau (onglet Cadeaux)');
+    const g = giftInfo(r);
+    simEvent({ type: 'gift', giftName: g.name || r.name, giftId: r.giftId, diamondCount: g.diamonds || 0, repeatCount: Number($('gift-count').value) || 1 });
   };
 
   // ---------- Mise à jour de l'état ----------
@@ -291,9 +254,9 @@
     const opts = s.players.map((p) => `<option value="${esc(p.id)}">${esc(p.nickname)} (🪙${p.tokens})</option>`).join('');
     if (sel.dataset.h !== opts) { sel.innerHTML = opts; sel.dataset.h = opts; if (cur) sel.value = cur; }
     if (!settingsLoaded) { renderSettings(s.config); settingsLoaded = true; }
-    if (!rulesLoaded) { rulesDraft = JSON.parse(JSON.stringify(s.config.giftRules)); renderRules(); rulesLoaded = true; catalogKey = ''; }
-    const ck = (s.config.giftCatalog || []).length + ':' + (s.config.giftCatalog || []).map((g) => g.id).join(',').length;
-    if (ck !== catalogKey) { catalogKey = ck; renderCatalog(); $('gift-names').innerHTML = (s.config.giftCatalog || []).map((g) => `<option value="${esc(g.name)}">💎 ${g.diamonds}</option>`).join(''); }
+    if (!rulesLoaded) { rulesDraft = JSON.parse(JSON.stringify(s.config.giftRules)); renderLinks(); rulesLoaded = true; }
+    const simOpts = rulesDraft.map((r, i) => { const e = (s.effects || []).find((x) => x.action === r.action && String(x.param) === String(r.param)); return `<option value="${i}">${esc(r.name)} → ${e ? e.icon + ' ' + esc(e.label) : esc(r.action)}</option>`; }).join('');
+    if ($('sim-gift').dataset.h !== simOpts) { const v = $('sim-gift').value; $('sim-gift').innerHTML = simOpts; $('sim-gift').dataset.h = simOpts; if (v) $('sim-gift').value = v; }
     if (s.configCustomized) { writeBackup(s.config); $('restore').classList.add('hidden'); }
     else $('restore').classList.toggle('hidden', restoreDismissed || !readBackup());
   });

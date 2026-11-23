@@ -36,44 +36,38 @@ function defaultItems() {
 // spawn (objet bonus, param = clé d'objet), queueSkip (passer devant, param = nombre de places, 0 = tout devant),
 // shield (bouclier pour le donateur), et pouvoirs qui gênent le joueur du tour : jinxShake (secousse au lancer),
 // deviate (jeton dévié), loseTokens (perte, param = nombre), steal (vol au profit du donateur, param = nombre), none.
-// Petits cadeaux TikTok courants, avec leur prix en pièces relevé sur des listes publiques (nov. 2026, non officielles :
-// le prix réel peut varier selon le pays). L'identifiant « nom-… » est provisoire : dès que le cadeau est reçu en live
-// ou chargé depuis TikTok, il est remplacé par le vrai identifiant, et son image s'ajoute.
-const STARTER_GIFTS = [
-  { id: '5655', name: 'Rose', diamonds: 1, action: 'shake', param: 1 },
-  { id: 'nom-gg', name: 'GG', diamonds: 1, action: 'shake', param: 1 },
-  { id: 'nom-ice-cream-cone', name: 'Ice Cream Cone', diamonds: 1, action: 'coinRain', param: 2 },
-  { id: 'nom-finger-heart', name: 'Finger Heart', diamonds: 5, action: 'queueSkip', param: 2 },
-  { id: 'nom-perfume', name: 'Perfume', diamonds: 20, action: 'jinxShake', param: 1 },
-  { id: 'nom-doughnut', name: 'Doughnut', diamonds: 30, action: 'deviate', param: 1 },
-  { id: 'nom-confetti', name: 'Confetti', diamonds: 100, action: 'shield', param: 0 },
+// Cadeaux TikTok courants proposés dans le contrôle (nom anglais envoyé par TikTok, prix en pièces TikTok relevé sur
+// des listes publiques en nov. 2026, non officielles : il peut varier selon le pays). L'identifiant « nom-… » est
+// provisoire : dès que le cadeau est reçu en live ou chargé depuis TikTok, il prend son vrai identifiant et son image.
+// `effect` : liaison proposée par défaut (voir src/effects.js), modifiable dans l'onglet Cadeaux.
+const KNOWN_GIFTS = [
+  { id: '5655', name: 'Rose', diamonds: 1, effect: 'shake' },
+  { id: 'nom-gg', name: 'GG', diamonds: 1, effect: 'shake' },
+  { id: 'nom-ice-cream-cone', name: 'Ice Cream Cone', diamonds: 1, effect: 'coinRain2' },
+  { id: 'nom-thumbs-up', name: 'Thumbs Up', diamonds: 1 },
+  { id: 'nom-finger-heart', name: 'Finger Heart', diamonds: 5, effect: 'queueSkip2' },
+  { id: 'nom-perfume', name: 'Perfume', diamonds: 20, effect: 'jinxShake' },
+  { id: 'nom-doughnut', name: 'Doughnut', diamonds: 30, effect: 'deviate' },
+  { id: 'nom-confetti', name: 'Confetti', diamonds: 100, effect: 'shield' },
+  { id: 'nom-sunglasses', name: 'Sunglasses', diamonds: 199, effect: 'lose2' },
+  { id: 'nom-corgi', name: 'Corgi', diamonds: 299, effect: 'spawn:diamant' },
+  { id: 'nom-money-gun', name: 'Money Gun', diamonds: 500, effect: 'steal3' },
+  { id: 'nom-swan', name: 'Swan', diamonds: 699, effect: 'spawn:rubis' },
+  { id: 'nom-galaxy', name: 'Galaxy', diamonds: 1000, effect: 'spawn:emeraude' },
+  { id: 'nom-fireworks', name: 'Fireworks', diamonds: 1088, effect: 'spawn:amethyste' },
+  { id: 'nom-whale-diving', name: 'Whale Diving', diamonds: 2150, effect: 'spawn:topaze' },
+  { id: 'nom-lion', name: 'Lion', diamonds: 29999, effect: 'spawn:cristal' },
+  { id: 'nom-tiktok-universe', name: 'TikTok Universe', diamonds: 44999, effect: 'spawn:coffre' },
 ];
 
 function defaultGiftCatalog() {
-  return STARTER_GIFTS.map(({ id, name, diamonds }) => ({ id, name, diamonds, image: '' }));
+  return KNOWN_GIFTS.map(({ id, name, diamonds }) => ({ id, name, diamonds, image: '' }));
 }
 
+// Une liaison = un cadeau précis (identifiant TikTok et nom) → un effet. Un cadeau sans liaison ne fait rien.
 function defaultGiftRules() {
-  return [
-    // Cadeaux précis (prioritaires) : petits cadeaux = effets doux et pouvoirs les moins pénalisants.
-    ...STARTER_GIFTS.map((g) => ({ name: g.name, giftId: g.id, minDiamonds: 0, maxDiamonds: 0, action: g.action, param: g.param })),
-    // Puis règles par valeur pour tous les autres cadeaux.
-    { name: '', minDiamonds: 1, maxDiamonds: 9, action: 'shake', param: 1 },
-    { name: '', minDiamonds: 10, maxDiamonds: 29, action: 'queueSkip', param: 3 },
-    { name: '', minDiamonds: 30, maxDiamonds: 98, action: 'coinRain', param: 5 },
-    { name: '', minDiamonds: 99, maxDiamonds: 198, action: 'spawn', param: 'diamant' },
-    { name: '', minDiamonds: 199, maxDiamonds: 298, action: 'jinxShake', param: 1 },
-    { name: '', minDiamonds: 299, maxDiamonds: 398, action: 'deviate', param: 1 },
-    { name: '', minDiamonds: 399, maxDiamonds: 498, action: 'loseTokens', param: 2 },
-    { name: '', minDiamonds: 499, maxDiamonds: 698, action: 'shield', param: 0 },
-    { name: '', minDiamonds: 699, maxDiamonds: 998, action: 'steal', param: 3 },
-    { name: '', minDiamonds: 999, maxDiamonds: 1498, action: 'spawn', param: 'rubis' },
-    { name: '', minDiamonds: 1499, maxDiamonds: 1998, action: 'spawn', param: 'emeraude' },
-    { name: '', minDiamonds: 1999, maxDiamonds: 2998, action: 'spawn', param: 'amethyste' },
-    { name: '', minDiamonds: 2999, maxDiamonds: 3998, action: 'spawn', param: 'topaze' },
-    { name: '', minDiamonds: 3999, maxDiamonds: 4998, action: 'spawn', param: 'cristal' },
-    { name: '', minDiamonds: 4999, maxDiamonds: 999999, action: 'spawn', param: 'coffre' },
-  ];
+  const { effectToRule } = require('./effects');
+  return KNOWN_GIFTS.filter((g) => g.effect).map((g) => ({ name: g.name, giftId: g.id, ...effectToRule(g.effect) }));
 }
 
 function defaultConfig() {
@@ -158,7 +152,8 @@ function applyConfigPatch(cfg, patch) {
       });
     } else if (k === 'giftRules' && Array.isArray(v)) {
       const actions = ['shake', 'coinRain', 'spawn', 'queueSkip', 'shield', 'jinxShake', 'deviate', 'loseTokens', 'steal', 'none'];
-      out.giftRules = v.slice(0, 300).filter((r) => r && actions.includes(r.action)).map((r) => ({
+      // Seules les liaisons à un cadeau précis sont gardées (les anciennes règles « par valeur » sont abandonnées).
+      out.giftRules = v.slice(0, 300).filter((r) => r && actions.includes(r.action) && (r.name || r.giftId)).map((r) => ({
         name: String(r.name || '').slice(0, 60),
         giftId: r.giftId ? String(r.giftId).slice(0, 40) : '',
         minDiamonds: Math.max(0, Number(r.minDiamonds) || 0),
@@ -193,8 +188,9 @@ function sanitizeCatalog(list) {
 function mergeCatalog(catalog, gifts) {
   const incoming = sanitizeCatalog(gifts);
   // Un cadeau connu seulement par son nom (identifiant provisoire « nom-… ») prend son vrai identifiant.
-  const realNames = new Set(incoming.filter((g) => !g.id.startsWith('nom-')).map((g) => g.name.toLowerCase()));
-  catalog = (catalog || []).filter((g) => !(g.id.startsWith('nom-') && realNames.has(g.name.toLowerCase())));
+  const key = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '');
+  const realNames = new Set(incoming.filter((g) => !g.id.startsWith('nom-')).map((g) => key(g.name)));
+  catalog = (catalog || []).filter((g) => !(g.id.startsWith('nom-') && realNames.has(key(g.name))));
   const map = new Map(catalog.map((g) => [g.id, g]));
   for (const g of incoming) map.set(g.id, { ...map.get(g.id), ...g, image: g.image || map.get(g.id)?.image || '' });
   return sanitizeCatalog([...map.values()]);
@@ -204,8 +200,9 @@ function mergeCatalog(catalog, gifts) {
 function adoptGiftIds(rules, catalog) {
   return (rules || []).map((r) => {
     if (!r.giftId || !String(r.giftId).startsWith('nom-')) return r;
-    const real = (catalog || []).find((g) => !g.id.startsWith('nom-') && g.name.toLowerCase() === String(r.name).toLowerCase());
-    return real ? { ...r, giftId: real.id } : r;
+    const key = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '');
+    const real = (catalog || []).find((g) => !g.id.startsWith('nom-') && key(g.name) === key(r.name));
+    return real ? { ...r, giftId: real.id, name: real.name } : r;
   });
 }
 

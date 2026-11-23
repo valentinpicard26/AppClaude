@@ -50,12 +50,13 @@ class Simulator {
     if (r < 0.15) this.emit({ type: 'chat', userId: any.id, nickname: any.nickname, comment: String(1 + Math.floor(this.random() * 3)) });
     else if (r < 0.35) this.emit({ type: 'like', userId: any.id, nickname: any.nickname, likeCount: 5 + Math.floor(this.random() * 30) });
     else if (r < 0.37) this.emit({ type: 'gift', userId: any.id, nickname: any.nickname, giftName: 'Rose', diamondCount: 1, repeatCount: 1 });
-    else if (r < 0.375) this.emit({ type: 'gift', userId: any.id, nickname: any.nickname, giftName: 'Cadeau test', diamondCount: 99, repeatCount: 1 });
+    else if (r < 0.375) this.emit({ type: 'gift', userId: any.id, nickname: any.nickname, giftName: 'Corgi', diamondCount: 299, repeatCount: 1 });
     else if (r < 0.38) this.emit({ type: 'follow', userId: any.id, nickname: any.nickname });
     else if (r < 0.395) {
-      // Pouvoirs et bouclier (valeurs par défaut : 199 secousse au lancer, 299 dévié, 399 perte, 499 bouclier, 699 vol)
-      const d = [199, 299, 399, 499, 699][Math.floor(this.random() * 5)];
-      this.emit({ type: 'gift', userId: any.id, nickname: any.nickname, giftName: 'Cadeau test', diamondCount: d, repeatCount: 1 });
+      // Un cadeau lié au hasard (pouvoirs, bouclier, objets…)
+      const rules = (g.config.giftRules || []).filter((x) => x.name);
+      const rule = rules[Math.floor(this.random() * rules.length)];
+      if (rule) this.emit({ type: 'gift', userId: any.id, nickname: any.nickname, giftName: rule.name, giftId: rule.giftId, diamondCount: 0, repeatCount: 1 });
     }
   }
 }

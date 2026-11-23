@@ -115,25 +115,19 @@
       <!-- CADEAUX -->
       <section data-tab="gifts" class="hidden">
         <div class="card">
-          <h2>Catalogue des cadeaux TikTok</h2>
-          <p class="muted small">Choisis l'effet de chaque cadeau. Un cadeau réglé ici passe avant les règles par valeur ci-dessous. Un cadeau envoyé 3 fois déclenche 3 fois l'effet.</p>
-          <div class="row"><button id="gifts-fetch" class="primary">📥 Charger les cadeaux depuis TikTok</button></div>
-          <p class="muted small">Attention : la liste complète demande l'offre payante d'Euler Stream. Sans elle, chaque cadeau reçu pendant un live s'ajoute tout seul au catalogue, et tu peux en ajouter à la main.</p>
-          <div class="row">
-            <input id="gifts-search" placeholder="🔎 Rechercher un cadeau" style="flex:3">
-            <select id="gifts-filter" style="flex:2"><option value="all">Tous</option><option value="set">Avec effet</option></select>
-          </div>
-          <div id="catalog" class="catalog"></div>
-          <details class="manual"><summary>Ajouter un cadeau à la main</summary>
-            <div class="row"><input id="man-name" placeholder="Nom exact du cadeau" style="flex:2"><input id="man-dia" type="number" placeholder="💎" style="flex:1"></div>
-            <button id="man-add">Ajouter au catalogue</button>
-          </details>
+          <h2>Cadeaux → effets</h2>
+          <p class="muted small">Chaque cadeau TikTok lié ici déclenche l'effet choisi, à chaque envoi (3 roses = 3 effets). Un cadeau qui n'est pas dans la liste ne fait rien. Ces liaisons s'affichent aussi aux viewers, sous les fentes.</p>
+          <button id="link-add" class="primary">+ Lier un cadeau</button>
+          <div id="links" class="links"></div>
         </div>
-        <div class="card">
-          <h2>Règles par valeur (et par nom)</h2>
-          <p class="muted small">Pour les cadeaux qui n'ont pas d'effet dans le catalogue : l'effet dépend de leur valeur en diamants (pour 1 cadeau). Valeurs proposées par défaut, à confirmer.</p>
-          <div id="rules"></div>
-          <button id="add-rule">+ Ajouter une règle</button>
+        <div id="picker" class="card hidden">
+          <h2>Choisir un cadeau</h2>
+          <input id="pick-search" placeholder="🔎 Rechercher un cadeau" autocomplete="off">
+          <div id="pick-list" class="catalog"></div>
+          <div class="row"><input id="pick-other" placeholder="Autre cadeau : son nom exact (en anglais)"><button id="pick-other-ok">Ajouter</button></div>
+          <p class="muted small">La liste contient les cadeaux courants, ceux déjà reçus en live (avec leur image) et ceux chargés depuis TikTok.
+            <button id="gifts-fetch" class="link">📥 Charger tous les cadeaux depuis TikTok</button> (offre payante d'Euler Stream nécessaire).</p>
+          <button id="pick-cancel">Annuler</button>
         </div>
         <div class="row sticky">
           <button id="save-rules" class="primary big">Enregistrer les cadeaux</button>
@@ -164,24 +158,12 @@
             <button data-ev="rose">🌹 Rose</button>
             <button data-ev="leave">🚪 Quitte le live</button>
           </div>
-          <h3>Pouvoirs (envoie le cadeau réglé pour cet effet)</h3>
-          <div class="grid2" id="power-buttons">
-            <button data-power="jinxShake">🌪️ Secousse au lancer</button>
-            <button data-power="deviate">↪️ Jeton dévié</button>
-            <button data-power="loseTokens">💥 Perte de jetons</button>
-            <button data-power="steal">🦹 Vol de jetons</button>
-            <button data-power="shield">🛡️ Bouclier</button>
-            <button data-power="queueSkip">⚡ Passer devant</button>
-          </div>
-          <h3>Cadeau</h3>
+          <h3>Envoyer un cadeau lié</h3>
           <div class="row">
-            <input id="gift-name" placeholder="Nom (optionnel)" list="gift-names" style="flex:2">
-            <datalist id="gift-names"></datalist>
-            <input id="gift-diamonds" type="number" value="99" min="0" style="flex:1">
+            <select id="sim-gift" style="flex:3"></select>
             <input id="gift-count" type="number" value="1" min="1" style="flex:1" title="Nombre">
           </div>
           <div class="row"><button id="send-gift" class="primary">🎁 Envoyer le cadeau</button></div>
-          <p class="muted small">Valeurs par défaut (proposées) : 1 = secousse, 10 = passe devant, 30 = pluie de jetons, 99 = diamant, 199 = secousse au lancer, 299 = jeton dévié, 399 = perte de 2 jetons, 499 = bouclier, 699 = vol de 3 jetons, 999 = rubis, 1499 = émeraude, 1999 = améthyste, 2999 = topaze, 3999 = cristal, 4999 = coffre.</p>
           <p id="sim-result" class="muted small"></p>
         </div>
       </section>

@@ -15,6 +15,7 @@ const { Machine, STEP_MS, W, D, SLOT_X } = require('./src/machine');
 const { TikTokSource } = require('./src/tiktok');
 const { Simulator } = require('./src/simulator');
 const { rewardsList } = require('./src/rewards');
+const { effectsList } = require('./src/effects');
 
 const PORT = Number(process.env.PORT) || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
@@ -159,7 +160,7 @@ function controlState() {
   return {
     config, stats: game.controlStats(), players: game.playersList().slice(0, 100), status: game.status,
     live: tiktok.status, simAuto: sim.auto, log: log.slice(-25), objects: machine.objects.size,
-    version: VERSION, simSpeed: perf.simSpeed, cpu: perf.cpu,
+    version: VERSION, simSpeed: perf.simSpeed, cpu: perf.cpu, effects: effectsList(config),
     hasSignKey: !!process.env.TIKTOK_SIGN_API_KEY, passwordSet: !!ADMIN_PASSWORD, configCustomized,
   };
 }

@@ -15,8 +15,10 @@ function setup(patch = {}, random = () => 0.5) {
 const A = { userId: 'a', nickname: 'Alice' };
 const B = { userId: 'b', nickname: 'Bob' };
 const C = { userId: 'c', nickname: 'Chloé' };
-// Cadeaux par défaut (valeurs proposées) : 199 secousse au lancer, 299 dévié, 399 perte de 2, 499 bouclier, 699 vol de 3.
-const gift = (u, diamonds, n = 1) => ({ type: 'gift', ...u, diamondCount: diamonds, repeatCount: n });
+// Liaisons par défaut : Perfume = secousse au lancer, Doughnut = jeton dévié, Sunglasses = perte de 2,
+// Confetti = bouclier, Money Gun = vol de 3. (Les nombres gardent l'ancien repère de prix de chaque test.)
+const GIFT_FOR = { 199: 'Perfume', 299: 'Doughnut', 399: 'Sunglasses', 499: 'Confetti', 699: 'Money Gun' };
+const gift = (u, diamonds, n = 1) => ({ type: 'gift', ...u, giftName: GIFT_FOR[diamonds], diamondCount: diamonds, repeatCount: n });
 
 // A joue, B attend.
 function aPlaying(patch, random) {
