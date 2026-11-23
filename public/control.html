@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1a0007">
+  <title>Contrôle · TikTok Pièces</title>
+  <link rel="stylesheet" href="control.css">
+</head>
+<body>
+  <div id="login" class="hidden">
+    <h1>🎮 Contrôle</h1>
+    <p>Mot de passe administrateur</p>
+    <input id="pw" type="password" autocomplete="current-password">
+    <button id="pw-go" class="primary">Entrer</button>
+    <p id="pw-err" class="err"></p>
+  </div>
+
+  <div id="app" class="hidden">
+    <header>
+      <div class="title">TikTok Pièces <span id="status-pill" class="pill">…</span></div>
+      <div class="quick">
+        <button id="q-pause">⏸ Pause</button>
+        <button id="q-resume" class="primary">▶ Reprendre</button>
+      </div>
+    </header>
+    <div id="warn" class="warn hidden"></div>
+
+    <main>
+      <!-- LIVE -->
+      <section data-tab="live">
+        <div class="card">
+          <h2>Live TikTok</h2>
+          <label>Pseudo TikTok du créateur<input id="live-user" placeholder="@monpseudo" autocapitalize="off" autocomplete="off"></label>
+          <div class="row">
+            <button id="live-connect" class="primary">Lier le live</button>
+            <button id="live-disconnect">Délier</button>
+          </div>
+          <p class="muted">État : <b id="live-state">—</b> <span id="live-viewers"></span></p>
+          <p class="muted small" id="live-err"></p>
+          <p class="muted small">Connexion par la bibliothèque non officielle TikTok-Live-Connector. Clé de signature : <b id="sign-key">—</b>.</p>
+        </div>
+        <div class="card">
+          <h2>Partie</h2>
+          <div class="grid2">
+            <button id="g-pause">⏸ Pause</button>
+            <button id="g-resume" class="primary">▶ Démarrer / reprendre</button>
+            <button id="g-stop">⏹ Arrêter</button>
+            <button id="g-refill">🪙 Remplir le plateau</button>
+            <button id="g-resetboard" class="danger">Classement à zéro</button>
+            <button id="g-reset" class="danger">Redémarrer de zéro</button>
+          </div>
+          <p class="muted small">« Redémarrer de zéro » efface joueurs, jetons et points du live, et remet le plateau à neuf.</p>
+        </div>
+        <div class="card">
+          <h2>Statistiques</h2>
+          <div class="stats" id="stats"></div>
+          <h3>Meilleurs donateurs</h3>
+          <ol id="donors" class="list"></ol>
+        </div>
+        <div class="card">
+          <h2>Joueurs</h2>
+          <table class="tbl"><thead><tr><th>Pseudo</th><th>🪙</th><th>Points</th><th></th></tr></thead><tbody id="players"></tbody></table>
+        </div>
+        <div class="card">
+          <h2>Journal</h2>
+          <div id="log" class="log"></div>
+        </div>
+      </section>
+
+      <!-- RÉGLAGES -->
+      <section data-tab="settings" class="hidden">
+        <div class="card">
+          <h2>Tour</h2>
+          <div class="fields" id="f-turn"></div>
+        </div>
+        <div class="card">
+          <h2>Jetons</h2>
+          <div class="fields" id="f-tokens"></div>
+        </div>
+        <div class="card">
+          <h2>Commandes du chat</h2>
+          <p class="muted small">Plusieurs mots possibles, séparés par des virgules (ex. « 1, g, gauche »).</p>
+          <div class="fields" id="f-cmds"></div>
+        </div>
+        <div class="card">
+          <h2>Machine</h2>
+          <div class="fields" id="f-machine"></div>
+        </div>
+        <div class="card">
+          <h2>Objets et points</h2>
+          <p class="muted small">Fréquence : poids relatif d'apparition des tickets (0 = jamais).</p>
+          <table class="tbl"><thead><tr><th>Objet</th><th>Points</th><th>Fréquence</th></tr></thead><tbody id="items"></tbody></table>
+        </div>
+        <div class="card">
+          <h2>Divers</h2>
+          <div class="fields" id="f-misc"></div>
+        </div>
+        <div class="row sticky">
+          <button id="save-settings" class="primary big">Enregistrer les réglages</button>
+        </div>
+        <p class="center"><button id="reset-settings" class="danger">Revenir aux valeurs par défaut</button></p>
+      </section>
+
+      <!-- CADEAUX -->
+      <section data-tab="gifts" class="hidden">
+        <div class="card">
+          <h2>Cadeaux → effets</h2>
+          <p class="muted small">Une règle avec un nom de cadeau passe avant les règles par valeur (en diamants TikTok, pour 1 cadeau). Un cadeau envoyé 3 fois déclenche 3 fois l'effet. Valeurs proposées par défaut, à confirmer.</p>
+          <div id="rules"></div>
+          <button id="add-rule">+ Ajouter une règle</button>
+        </div>
+        <div class="row sticky">
+          <button id="save-rules" class="primary big">Enregistrer les cadeaux</button>
+        </div>
+      </section>
+
+      <!-- SIMULATEUR -->
+      <section data-tab="sim" class="hidden">
+        <div class="card">
+          <h2>Faux viewers</h2>
+          <div class="row">
+            <button data-add="1">+1 viewer</button>
+            <button data-add="5">+5 viewers</button>
+          </div>
+          <label class="switch"><input type="checkbox" id="sim-auto"> Simulation automatique (viewers qui jouent, likent, offrent)</label>
+        </div>
+        <div class="card">
+          <h2>Agir en tant que…</h2>
+          <select id="sim-who"></select>
+          <div class="grid3">
+            <button data-chat="1">Écrit 1</button>
+            <button data-chat="2">Écrit 2</button>
+            <button data-chat="3">Écrit 3</button>
+          </div>
+          <div class="grid2">
+            <button data-ev="like100">❤️ 100 likes</button>
+            <button data-ev="follow">➕ S'abonne</button>
+            <button data-ev="rose">🌹 Rose</button>
+            <button data-ev="leave">🚪 Quitte le live</button>
+          </div>
+          <h3>Cadeau</h3>
+          <div class="row">
+            <input id="gift-name" placeholder="Nom (optionnel)" style="flex:2">
+            <input id="gift-diamonds" type="number" value="99" min="0" style="flex:1">
+            <input id="gift-count" type="number" value="1" min="1" style="flex:1" title="Nombre">
+          </div>
+          <div class="row"><button id="send-gift" class="primary">🎁 Envoyer le cadeau</button></div>
+          <p class="muted small">Valeurs par défaut : 1 = secousse, 10 = passe devant, 30 = pluie de jetons, 99 = diamant, 199 = rubis, 299 = émeraude, 499 = améthyste, 999 = topaze, 2999 = cristal, 4999 = coffre.</p>
+          <p id="sim-result" class="muted small"></p>
+        </div>
+      </section>
+
+      <!-- APERÇU -->
+      <section data-tab="preview" class="hidden">
+        <div class="card">
+          <h2>Aperçu (ce que voient les viewers)</h2>
+          <div class="preview-wrap"><iframe id="preview" title="Aperçu du jeu"></iframe></div>
+          <p class="muted small">Lien de la page du jeu à afficher en plein écran et à partager dans le live :</p>
+          <p><a id="game-link" target="_blank" rel="noopener"></a></p>
+        </div>
+      </section>
+    </main>
+
+    <nav>
+      <button data-go="live" class="on">📡<span>Live</span></button>
+      <button data-go="settings">⚙️<span>Réglages</span></button>
+      <button data-go="gifts">🎁<span>Cadeaux</span></button>
+      <button data-go="sim">🧪<span>Simulateur</span></button>
+      <button data-go="preview">👁️<span>Aperçu</span></button>
+    </nav>
+  </div>
+  <div id="toast"></div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="control.js"></script>
+</body>
+</html>

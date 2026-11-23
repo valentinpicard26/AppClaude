@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#120006">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>TikTok Pièces</title>
+  <link rel="stylesheet" href="game.css">
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="hud">
+    <div id="turn" class="hidden">
+      <div class="turn-line"><span class="turn-label">À toi,</span> <span id="turn-name"></span></div>
+      <div class="turn-sub"><span id="turn-hint"></span><span id="turn-tokens"></span></div>
+      <div class="bar"><div id="turn-bar"></div></div>
+      <div id="turn-count"></div>
+    </div>
+    <div id="ticker"></div>
+    <div id="idle" class="hidden">
+      <div class="idle-big">Rejoins le live&nbsp;!</div>
+      <div class="idle-sub">Tu reçois <b id="idle-tokens">5</b> jetons.<br>À ton tour, écris <b id="idle-cmds">1, 2 ou 3</b><br>pour lancer à gauche, au centre ou à droite.</div>
+    </div>
+    <div id="paused" class="hidden">PAUSE</div>
+    <div id="announce"></div>
+    <div id="bottom">
+      <div class="panel" id="board"><h3>🏆 Classement du live</h3><ol id="board-list"></ol></div>
+      <div class="panel" id="queue"><h3>⏳ File d'attente <span id="queue-n"></span></h3><ol id="queue-list"></ol></div>
+      <div id="likes-hint"></div>
+    </div>
+  </div>
+  <div id="offline" class="hidden">Connexion au serveur…</div>
+  <button id="fs" title="Plein écran">⛶</button>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
