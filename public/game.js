@@ -233,7 +233,9 @@
       case 'pending': tick(`⏳ Pouvoir de @${e.by} en attente pour ${e.target ? '@' + e.target : 'le prochain joueur'}`); break;
       case 'peaceful': tick(`🕊️ Mode paisible : pouvoir de @${e.by} désactivé`); break;
       case 'shake': shakeUntil = performance.now() + 600; tick(`🌹 Secousse offerte par @${e.by}`); sfx('shake'); break;
-      case 'spawn': announce(`🎁 @${e.by} fait apparaître : ${items[e.item]?.label || e.item}&nbsp;!`); sfx('big'); break;
+      case 'spawn':
+        announce(e.by ? `🎁 @${e.by} fait apparaître : ${items[e.item]?.label || e.item}&nbsp;!` : `💎 Un ${items[e.item]?.label || e.item} apparaît sur le plateau&nbsp;!`);
+        sfx('big'); break;
       case 'coinRain': announce(`🪙 Pluie de jetons offerte par @${e.by}&nbsp;!`); break;
       case 'queueSkip': tick(`⚡ @${e.player} passe en position ${e.position}`); break;
       case 'tokens':

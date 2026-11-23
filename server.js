@@ -127,6 +127,7 @@ setInterval(() => {
     if (!running) continue;
     const fallen = machine.step(STEP_MS);
     for (const f of fallen) game.onFall(f, Date.now(), { side: f.side });
+    for (const e of machine.events.splice(0)) io.to('display').emit('fx', { type: 'spawn', item: e.item, by: null });
     stepCount++;
     perf.steps++;
     if (stepCount % 3 === 0) io.to('display').volatile.emit('snap', machine.snapshot()); // 20 fois par seconde

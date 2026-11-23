@@ -19,12 +19,14 @@ function defaultItems() {
     items.push({ key: 'ticket' + v, label: 'Ticket ' + v, kind: 'ticket', points: v, weight: weights[v], color: TICKET_COLORS[v] });
   }
   items.push(
-    { key: 'diamant', label: 'Diamant', kind: 'gem', points: 500, color: '#7fe9ff' },
-    { key: 'rubis', label: 'Rubis', kind: 'gem', points: 800, color: '#ff2d55' },
-    { key: 'emeraude', label: 'Émeraude', kind: 'gem', points: 1000, color: '#21d07a' },
-    { key: 'amethyste', label: 'Améthyste', kind: 'gem', points: 1200, color: '#a855f7' },
-    { key: 'topaze', label: 'Topaze', kind: 'gem', points: 1500, color: '#ffb020' },
-    { key: 'cristal', label: 'Cristal arc-en-ciel', kind: 'gem', points: 2000, color: 'rainbow' },
+    // Pierres précieuses : apparaissent d'elles-mêmes, au hasard (les plus précieuses sont les plus rares).
+    { key: 'diamant', label: 'Diamant', kind: 'gem', points: 500, weight: 40, color: '#7fe9ff' },
+    { key: 'rubis', label: 'Rubis', kind: 'gem', points: 800, weight: 25, color: '#ff2d55' },
+    { key: 'emeraude', label: 'Émeraude', kind: 'gem', points: 1000, weight: 15, color: '#21d07a' },
+    { key: 'amethyste', label: 'Améthyste', kind: 'gem', points: 1200, weight: 10, color: '#a855f7' },
+    { key: 'topaze', label: 'Topaze', kind: 'gem', points: 1500, weight: 6, color: '#ffb020' },
+    { key: 'cristal', label: 'Cristal arc-en-ciel', kind: 'gem', points: 2000, weight: 4, color: 'rainbow' },
+    // Le coffre mystère, lui, n'apparaît que grâce à un cadeau TikTok lié à cet effet.
     { key: 'coffre', label: 'Coffre mystère', kind: 'chest', points: 2000, pointsMax: 5000, color: '#c0842b' },
   );
   return items;
@@ -50,14 +52,14 @@ const KNOWN_GIFTS = [
   { id: 'nom-doughnut', name: 'Doughnut', diamonds: 30, effect: 'deviate' },
   { id: 'nom-confetti', name: 'Confetti', diamonds: 100, effect: 'shield' },
   { id: 'nom-sunglasses', name: 'Sunglasses', diamonds: 199, effect: 'lose2' },
-  { id: 'nom-corgi', name: 'Corgi', diamonds: 299, effect: 'spawn:diamant' },
+  { id: 'nom-corgi', name: 'Corgi', diamonds: 299, effect: 'coinRain5' },
   { id: 'nom-money-gun', name: 'Money Gun', diamonds: 500, effect: 'steal3' },
-  { id: 'nom-swan', name: 'Swan', diamonds: 699, effect: 'spawn:rubis' },
-  { id: 'nom-galaxy', name: 'Galaxy', diamonds: 1000, effect: 'spawn:emeraude' },
-  { id: 'nom-fireworks', name: 'Fireworks', diamonds: 1088, effect: 'spawn:amethyste' },
-  { id: 'nom-whale-diving', name: 'Whale Diving', diamonds: 2150, effect: 'spawn:topaze' },
-  { id: 'nom-lion', name: 'Lion', diamonds: 29999, effect: 'spawn:cristal' },
-  { id: 'nom-tiktok-universe', name: 'TikTok Universe', diamonds: 44999, effect: 'spawn:coffre' },
+  { id: 'nom-swan', name: 'Swan', diamonds: 699, effect: 'coinRain10' },
+  { id: 'nom-galaxy', name: 'Galaxy', diamonds: 1000, effect: 'spawn:coffre' },
+  { id: 'nom-fireworks', name: 'Fireworks', diamonds: 1088 },
+  { id: 'nom-whale-diving', name: 'Whale Diving', diamonds: 2150 },
+  { id: 'nom-lion', name: 'Lion', diamonds: 29999 },
+  { id: 'nom-tiktok-universe', name: 'TikTok Universe', diamonds: 44999 },
 ];
 
 function defaultGiftCatalog() {
@@ -91,6 +93,8 @@ function defaultConfig() {
     // Machine
     coinsOnPlate: 90,           // jetons posés au démarrage
     ticketsOnPlate: 6,          // tickets maintenus sur le plateau
+    gemEverySeconds: 120,       // une pierre précieuse apparaît en moyenne toutes les N secondes (0 = jamais)
+    maxGemsOnPlate: 2,          // pas plus de N pierres en même temps sur le plateau
     maxObjects: 150,            // limite pour garder le jeu fluide
     pusherStroke: 70,           // course du poussoir (unités de plateau, profondeur 400)
     pusherPeriodSeconds: 3.2,   // durée d'un aller-retour
@@ -122,7 +126,7 @@ const NUMERIC_LIMITS = {
   startTokens: [0, 100], maxTokens: [1, 200], likesPerRefill: [1, 100000], tokensPerLikeRefill: [0, 100],
   followTokens: [0, 100], coinsOnPlate: [0, 200], ticketsOnPlate: [0, 30], maxObjects: [20, 300],
   pusherStroke: [20, 150], pusherPeriodSeconds: [1, 10], sideGapRatio: [0, 0.8], shakeIntensity: [1, 10],
-  shakeDurationMs: [100, 3000], coinRainDelayMs: [50, 2000],
+  shakeDurationMs: [100, 3000], coinRainDelayMs: [50, 2000], gemEverySeconds: [0, 3600], maxGemsOnPlate: [0, 10],
   shieldSeconds: [5, 600], powerCooldownSeconds: [0, 300], sfxVolume: [0, 100], musicVolume: [0, 100], rewardsSeconds: [2, 20],
 };
 

@@ -68,7 +68,9 @@
     'f-cmds': [['commandsLeft', 'Gauche'], ['commandsCenter', 'Centre'], ['commandsRight', 'Droite']],
     'f-machine': [
       ['coinsOnPlate', 'Jetons posés au départ', 'Appliqué au prochain « Remplir le plateau »'],
-      ['ticketsOnPlate', 'Tickets sur le plateau'], ['maxObjects', 'Objets maximum', 'Baisser si le téléphone rame'],
+      ['ticketsOnPlate', 'Tickets sur le plateau'],
+      ['gemEverySeconds', 'Pierre précieuse : une toutes les … s (en moyenne)', 'Apparition au hasard ; 0 = jamais'],
+      ['maxGemsOnPlate', 'Pierres précieuses en même temps (max)'], ['maxObjects', 'Objets maximum', 'Baisser si le téléphone rame'],
       ['pusherStroke', 'Course du poussoir'], ['pusherPeriodSeconds', 'Aller-retour du poussoir (s)'],
       ['sideGapRatio', 'Ouverture des côtés (0 à 0,8)', 'Ce qui tombe par les côtés est perdu'],
       ['shakeIntensity', 'Intensité des secousses (1 à 10)'], ['shakeDurationMs', 'Durée des secousses (ms)'],
@@ -96,7 +98,7 @@
     $('items').innerHTML = cfg.items.map((it) => `<tr>
       <td>${esc(it.label)}</td>
       <td><input type="number" data-item="${it.key}" data-f="points" value="${it.points}">${it.kind === 'chest' ? `<br><small>à</small> <input type="number" data-item="${it.key}" data-f="pointsMax" value="${it.pointsMax}">` : ''}</td>
-      <td>${it.kind === 'ticket' ? `<input type="number" data-item="${it.key}" data-f="weight" value="${it.weight}">` : '<small class="muted">cadeau</small>'}</td></tr>`).join('');
+      <td>${it.kind === 'ticket' || it.kind === 'gem' ? `<input type="number" data-item="${it.key}" data-f="weight" value="${it.weight}">` : `<small class="muted">${it.kind === 'chest' ? 'cadeau lié' : 'lancé'}</small>`}</td></tr>`).join('');
   }
 
   function collectSettings() {
@@ -115,6 +117,7 @@
   // ---------- Cadeaux : liaisons « cadeau TikTok → effet » ----------
   // La liste des effets vient du serveur (src/effects.js) : un nouveau pouvoir y apparaît automatiquement.
   let rulesDraft = [];
+  let catalogKey = '';
   const gkey = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '');
   function giftInfo(r) {
     const cat = st?.config.giftCatalog || [];
@@ -131,16 +134,45 @@
     }
     return html;
   }
-  function imgHtml(g) { return g.image ? `<img src="${esc(g.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="noimg">🎁</span>'; }
+  function imgHtml(g) { return g && g.image ? `<img src="${esc(g.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="noimg">🎁</span>'; }
+  // Cadeaux ajoutés à la main dans cette session (envoyés au serveur à l'enregistrement).
+  let extraGifts = [];
+  function catalog() {
+    const all = [...(st?.config.giftCatalog || []), ...extraGifts];
+    const seen = new Set();
+    return all.filter((g) => { const k = gkey(g.name); if (seen.has(k)) return false; seen.add(k); return true; })
+      .sort((a, b) => (a.diamonds || 0) - (b.diamonds || 0) || a.name.localeCompare(b.name));
+  }
+  function giftOptions(r) {
+    const cur = giftInfo(r);
+    const list = catalog();
+    const inList = list.some((g) => gkey(g.name) === gkey(cur.name));
+    return (inList ? '' : `<option value="name:${esc(r.name)}" selected>${esc(r.name)}</option>`)
+      + list.map((g) => `<option value="${esc(g.id)}" ${gkey(g.name) === gkey(cur.name) ? 'selected' : ''}>${esc(g.name)}${g.diamonds ? ` — ${g.diamonds} pièce${g.diamonds > 1 ? 's' : ''} TikTok` : ''}</option>`).join('');
+  }
   function renderLinks() {
     if (!st) return;
+    $('cat-count').textContent = catalog().length;
+    const counts = {};
+    rulesDraft.forEach((r) => { const k = gkey(r.name); counts[k] = (counts[k] || 0) + 1; });
     $('links').innerHTML = rulesDraft.length ? rulesDraft.map((r, i) => {
       const g = giftInfo(r);
-      return `<div class="link-row" data-i="${i}">${imgHtml(g)}<span class="gname">${esc(g.name || r.name)}</span>
-        <button class="del" data-del title="Retirer">🗑️</button><select data-eff>${effectOptions(r)}</select></div>`;
-    }).join('') : '<p class="muted small">Aucun cadeau lié pour l\'instant.</p>';
+      const dup = counts[gkey(r.name)] > 1;
+      return `<div class="link-row ${dup ? 'dup' : ''}" data-i="${i}">${imgHtml(g)}
+        <select data-gift title="Cadeau TikTok">${giftOptions(r)}</select>
+        <button class="del" data-del title="Retirer">🗑️</button>
+        <select data-eff title="Effet">${effectOptions(r)}</select></div>`;
+    }).join('') : '<p class="muted small">Aucun cadeau lié pour l\'instant : appuie sur « + Lier un cadeau ».</p>';
     $('links').querySelectorAll('.link-row').forEach((el) => {
       const i = Number(el.dataset.i);
+      el.querySelector('[data-gift]').onchange = (e) => {
+        const g = catalog().find((x) => x.id === e.target.value);
+        if (!g) return;
+        rulesDraft[i].name = g.name; rulesDraft[i].giftId = g.id;
+        renderLinks();
+        if (rulesDraft.filter((r) => gkey(r.name) === gkey(g.name)).length > 1) toast('⚠️ Ce cadeau est déjà lié sur une autre ligne');
+        else toast('Pense à enregistrer');
+      };
       el.querySelector('[data-eff]').onchange = (e) => {
         const eff = (st.effects || []).find((x) => x.id === e.target.value);
         if (eff) { rulesDraft[i].action = eff.action; rulesDraft[i].param = eff.param; toast('Pense à enregistrer'); }
@@ -148,38 +180,36 @@
       el.querySelector('[data-del]').onclick = () => { rulesDraft.splice(i, 1); renderLinks(); toast('Pense à enregistrer'); };
     });
   }
-  function addLink(g) {
-    if (rulesDraft.some((r) => (g.id && r.giftId === g.id) || gkey(r.name) === gkey(g.name))) { toast('Ce cadeau est déjà lié'); return; }
-    rulesDraft.push({ name: g.name, giftId: g.id || '', action: 'shake', param: 1 });
-    $('picker').classList.add('hidden');
+  $('link-add').onclick = () => {
+    const used = new Set(rulesDraft.map((r) => gkey(r.name)));
+    const g = catalog().find((x) => !used.has(gkey(x.name))) || catalog()[0];
+    if (!g) return toast('Aucun cadeau dans la liste : ajoute-en un plus bas');
+    rulesDraft.unshift({ name: g.name, giftId: g.id, action: 'shake', param: 1 });
     renderLinks();
-    toast('Choisis son effet, puis enregistre');
-    const rows = $('links').querySelectorAll('.link-row'); rows[rows.length - 1]?.scrollIntoView({ block: 'center' });
-  }
-  function renderPicker() {
-    const q = gkey($('pick-search').value);
-    const linked = new Set(rulesDraft.map((r) => gkey(r.name)));
-    const list = (st?.config.giftCatalog || []).filter((g) => !linked.has(gkey(g.name)) && (!q || gkey(g.name).includes(q))).slice(0, 300);
-    $('pick-list').innerHTML = list.length
-      ? list.map((g) => `<div class="pick" data-id="${esc(g.id)}">${imgHtml(g)}<span>${esc(g.name)}</span><small>${g.diamonds ? g.diamonds + ' pièce' + (g.diamonds > 1 ? 's' : '') + ' TikTok' : ''}</small></div>`).join('')
-      : '<p class="muted small" style="padding:8px">Aucun cadeau trouvé : ajoute-le avec son nom exact ci-dessous.</p>';
-    $('pick-list').querySelectorAll('.pick').forEach((el) => { el.onclick = () => addLink((st.config.giftCatalog || []).find((g) => g.id === el.dataset.id)); });
-  }
-  $('link-add').onclick = () => { $('picker').classList.remove('hidden'); $('pick-search').value = ''; renderPicker(); $('picker').scrollIntoView({ block: 'start' }); };
-  $('pick-cancel').onclick = () => $('picker').classList.add('hidden');
-  $('pick-search').oninput = renderPicker;
+    toast('Choisis le cadeau et son effet, puis enregistre');
+  };
   $('pick-other-ok').onclick = () => {
     const name = $('pick-other').value.trim();
     if (!name) return toast('Indique le nom du cadeau');
     $('pick-other').value = '';
-    addLink({ name, id: '' });
+    if (catalog().some((g) => gkey(g.name) === gkey(name))) return toast('Ce cadeau est déjà dans la liste');
+    extraGifts.push({ id: 'nom-' + gkey(name), name, diamonds: 0, image: '' });
+    renderLinks();
+    toast('Ajouté au menu des cadeaux');
   };
   $('gifts-fetch').onclick = async () => {
     toast('Chargement des cadeaux…');
     const r = await act('gifts:fetch', { username: $('live-user').value });
     if (r.ok) toast(`${r.count} cadeaux chargés ✅`);
   };
-  $('save-rules').onclick = async () => { const r = await act('config:update', { giftRules: rulesDraft }, 'Cadeaux enregistrés ✅'); if (r.ok) rulesLoaded = false; };
+  $('save-rules').onclick = async () => {
+    const dups = rulesDraft.filter((r, i) => rulesDraft.findIndex((x) => gkey(x.name) === gkey(r.name)) !== i);
+    if (dups.length) return toast(`⚠️ ${dups[0].name} est lié deux fois : retire une des lignes`);
+    const patch = { giftRules: rulesDraft };
+    if (extraGifts.length) patch.giftCatalog = [...(st.config.giftCatalog || []), ...extraGifts];
+    const r = await act('config:update', patch, 'Cadeaux enregistrés ✅');
+    if (r.ok) { rulesLoaded = false; extraGifts = []; }
+  };
 
   // ---------- Copie des réglages sur le téléphone ----------
   // Render gratuit efface les fichiers à chaque redémarrage : on garde une copie locale et on propose de la restaurer.
@@ -255,6 +285,8 @@
     if (sel.dataset.h !== opts) { sel.innerHTML = opts; sel.dataset.h = opts; if (cur) sel.value = cur; }
     if (!settingsLoaded) { renderSettings(s.config); settingsLoaded = true; }
     if (!rulesLoaded) { rulesDraft = JSON.parse(JSON.stringify(s.config.giftRules)); renderLinks(); rulesLoaded = true; }
+    const ck = (s.config.giftCatalog || []).map((g) => g.id + (g.image ? '*' : '')).join(',');
+    if (ck !== catalogKey) { catalogKey = ck; renderLinks(); } // nouveaux cadeaux reçus ou chargés : menus à jour
     const simOpts = rulesDraft.map((r, i) => { const e = (s.effects || []).find((x) => x.action === r.action && String(x.param) === String(r.param)); return `<option value="${i}">${esc(r.name)} → ${e ? e.icon + ' ' + esc(e.label) : esc(r.action)}</option>`; }).join('');
     if ($('sim-gift').dataset.h !== simOpts) { const v = $('sim-gift').value; $('sim-gift').innerHTML = simOpts; $('sim-gift').dataset.h = simOpts; if (v) $('sim-gift').value = v; }
     if (s.configCustomized) { writeBackup(s.config); $('restore').classList.add('hidden'); }

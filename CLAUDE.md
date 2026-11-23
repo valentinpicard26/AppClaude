@@ -25,7 +25,7 @@ Ces règles viennent directement du créateur.
 - **Stock de jetons** : 20 jetons au maximum par viewer.
 - **Gagner des jetons** : en tapotant (100 likes rendent 5 jetons, même pendant l'attente de son tour) ou en s'abonnant au compte (5 jetons par abonnement).
 - **Tout se convertit en points** : ce qui tombe de la machine pendant le tour d'un joueur lui rapporte des points. Il ne récupère jamais de jetons. Par exemple, un jeton qui tombe vaut 10 points (valeur d'exemple, réglable).
-- **Objets à faire tomber** : des tickets de points sont présents sur le plateau. Les objets bonus et le coffre mystère apparaissent quand un viewer envoie une récompense assez haute, le coffre étant le plus cher à faire apparaître. L'objet atterrit sur le plateau fixe et revient au joueur qui le fait tomber, pas forcément à celui qui l'a payé. Valeurs dans le tableau ci-dessous.
+- **Objets à faire tomber** : des tickets de points sont présents sur le plateau. Les pierres précieuses apparaissent d'elles-mêmes, au hasard (décision du créateur, qui remplace l'apparition par récompense). Le coffre mystère apparaît quand un viewer envoie le cadeau TikTok lié au coffre. L'objet atterrit sur le plateau fixe et revient au joueur qui le fait tomber, pas forcément à celui qui l'a payé. Valeurs dans le tableau ci-dessous.
 - **Roses** : une rose provoque une petite secousse de la machine.
 - **File d'attente** : certains cadeaux font passer le viewer devant les autres.
 - **Pouvoirs qui gênent** : des dons activent des pouvoirs qui gênent le joueur dont c'est le tour : secousse de la machine pendant qu'il lance son jeton, jeton envoyé au hasard dans une autre fente, perte de 2 ou 3 jetons, ou vol de jetons.
@@ -37,13 +37,13 @@ Ces règles viennent directement du créateur.
 | --- | --- | --- |
 | Jeton | 10 (exemple) | Lancé par les joueurs |
 | Tickets de points (5 couleurs) | 20, 40, 60, 80, 100 (décision du créateur : pas de ticket au-delà de 100) | Présents sur le plateau |
-| Diamant | 500 | Haute récompense d'un viewer |
-| Rubis | 800 | Haute récompense d'un viewer |
-| Émeraude | 1 000 | Haute récompense d'un viewer |
-| Améthyste | 1 200 | Haute récompense d'un viewer |
-| Topaze | 1 500 | Haute récompense d'un viewer |
-| Cristal arc-en-ciel | 2 000 | Haute récompense d'un viewer |
-| Coffre mystère (rare) | 2 000 à 5 000, au hasard | Récompense la plus chère |
+| Diamant | 500 | Au hasard (fréquence réglable) |
+| Rubis | 800 | Au hasard (fréquence réglable) |
+| Émeraude | 1 000 | Au hasard (fréquence réglable) |
+| Améthyste | 1 200 | Au hasard (fréquence réglable) |
+| Topaze | 1 500 | Au hasard (fréquence réglable) |
+| Cristal arc-en-ciel | 2 000 | Au hasard (fréquence réglable) |
+| Coffre mystère (rare) | 2 000 à 5 000, au hasard | Cadeau TikTok lié au coffre |
 
 Toutes ces valeurs viennent du visuel fourni et restent réglables dans l'application de contrôle.
 
@@ -64,7 +64,7 @@ Ces règles ont été suggérées pendant la conception et le créateur a accept
 
 ### À trancher
 
-- [ ] Quels cadeaux (de quelle valeur) font apparaître quels objets bonus, donnent quels pouvoirs ou le bouclier, et lesquels font passer devant ? De combien de places ? *(Fonctionnement décidé par le créateur : chaque cadeau TikTok est lié un par un à un effet choisi dans une liste, dans l'onglet Cadeaux ; un cadeau non lié ne fait rien ; plus de règles par valeur, et le prix TikTok n'est pas affiché aux viewers pour ne pas le confondre avec les jetons du jeu. Liaisons proposées par défaut, modifiables : Rose et GG → secousse ; Ice Cream Cone → pluie de 2 jetons ; Finger Heart → passer 2 places ; Perfume → secousse au lancer ; Doughnut → jeton dévié ; Confetti → bouclier ; Sunglasses → perte de 2 jetons ; Corgi → diamant ; Money Gun → vol de 3 jetons ; Swan → rubis ; Galaxy → émeraude ; Fireworks → améthyste ; Whale Diving → topaze ; Lion → cristal ; TikTok Universe → coffre. Perfume et Doughnut, deux pouvoirs à petit prix, s'écartent de la règle « pouvoirs liés à de hautes récompenses », à la demande du créateur. Les nouveaux pouvoirs s'ajoutent dans src/effects.js et apparaissent automatiquement dans la liste.)*
+- [ ] Quels cadeaux (de quelle valeur) font apparaître quels objets bonus, donnent quels pouvoirs ou le bouclier, et lesquels font passer devant ? De combien de places ? *(Fonctionnement décidé par le créateur : chaque cadeau TikTok est lié un par un à un effet choisi dans une liste, dans l'onglet Cadeaux ; un cadeau non lié ne fait rien ; plus de règles par valeur, et le prix TikTok n'est pas affiché aux viewers pour ne pas le confondre avec les jetons du jeu. Liaisons proposées par défaut, modifiables : Rose et GG → secousse ; Ice Cream Cone → pluie de 2 jetons ; Finger Heart → passer 2 places ; Perfume → secousse au lancer ; Doughnut → jeton dévié ; Confetti → bouclier ; Sunglasses → perte de 2 jetons ; Corgi → pluie de 5 jetons ; Money Gun → vol de 3 jetons ; Swan → pluie de 10 jetons ; Galaxy → coffre mystère. Dans le contrôle, chaque ligne a un menu « cadeau » et un menu « effet ». Perfume et Doughnut, deux pouvoirs à petit prix, s'écartent de la règle « pouvoirs liés à de hautes récompenses », à la demande du créateur. Les nouveaux pouvoirs s'ajoutent dans src/effects.js et apparaissent automatiquement dans la liste.)*
 - [x] Les 5 jetons d'arrivée sont-ils donnés à tous, ou réservés aux abonnés (qui reçoivent déjà 5 jetons) ? **Décidé : donnés à tous les viewers qui arrivent.** S'y ajoutent 5 jetons par tranche de 100 likes et 5 jetons à l'abonnement.
 - [x] Les jetons volés vont-ils bien à l'attaquant ? **Décidé : oui, les jetons volés vont à l'attaquant.**
 - [x] Sauvegarde durable et classement hebdomadaire ? **Décidé (pour l'instant) : non.** Le créateur accepte que tout reparte à zéro à chaque redémarrage ou nouveau live ; seul le classement du live est affiché.
@@ -81,7 +81,7 @@ Le jeu écoute le live du créateur et traduit chaque événement en action. La 
 | Follow | Donne 5 jetons | Validé |
 | Rose | Petite secousse de la machine | Validé |
 | Cadeau désigné | Fait passer le viewer devant dans la file d'attente | Validé |
-| Haute récompense | Fait apparaître un objet bonus sur le plateau ; le coffre mystère demande la plus chère | Validé |
+| Cadeau lié au coffre | Fait apparaître le coffre mystère sur le plateau (les pierres précieuses apparaissent au hasard) | Validé |
 | Cadeau de haute valeur | Pouvoir qui gêne le joueur (secousse, jeton dévié, perte ou vol de jetons) ou bouclier, selon les réglages | Validé |
 
 Protections proposées :

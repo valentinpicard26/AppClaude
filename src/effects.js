@@ -21,7 +21,8 @@ function fmt(n) { return Number(n).toLocaleString('fr-FR'); }
 
 // Liste complète, avec un effet « faire apparaître » par objet bonus (gemmes, coffre), selon les réglages en cours.
 function effectsList(config) {
-  const spawns = (config?.items || []).filter((i) => i.kind === 'gem' || i.kind === 'chest').map((i) => ({
+  // Les pierres précieuses apparaissent d'elles-mêmes au hasard : seul le coffre est déclenché par un cadeau.
+  const spawns = (config?.items || []).filter((i) => i.kind === 'chest').map((i) => ({
     id: 'spawn:' + i.key, action: 'spawn', param: i.key, icon: '🎁', item: i.key, group: 'Objets bonus',
     label: `${i.label} sur le plateau (${i.kind === 'chest' ? `${fmt(i.points)} à ${fmt(i.pointsMax || i.points)}` : fmt(i.points)} pts)`,
   }));

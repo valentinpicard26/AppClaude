@@ -95,7 +95,7 @@
         </div>
         <div class="card">
           <h2>Objets et points</h2>
-          <p class="muted small">Fréquence : poids relatif d'apparition des tickets (0 = jamais).</p>
+          <p class="muted small">Fréquence : poids relatif d'apparition des tickets et des pierres précieuses (0 = jamais). Le coffre n'apparaît que grâce à un cadeau lié (onglet Cadeaux).</p>
           <table class="tbl"><thead><tr><th>Objet</th><th>Points</th><th>Fréquence</th></tr></thead><tbody id="items"></tbody></table>
         </div>
         <div class="card">
@@ -116,18 +116,17 @@
       <section data-tab="gifts" class="hidden">
         <div class="card">
           <h2>Cadeaux → effets</h2>
-          <p class="muted small">Chaque cadeau TikTok lié ici déclenche l'effet choisi, à chaque envoi (3 roses = 3 effets). Un cadeau qui n'est pas dans la liste ne fait rien. Ces liaisons s'affichent aussi aux viewers, sous les fentes.</p>
+          <p class="muted small">Sur chaque ligne, choisis un <b>cadeau TikTok</b> puis l'<b>effet</b> qu'il déclenche. À chaque envoi du cadeau, l'effet se produit (3 roses = 3 effets). Un cadeau sans ligne ne fait rien. Ces lignes s'affichent aussi aux viewers, sous les fentes.</p>
+          <p class="muted small">Les pierres précieuses apparaissent d'elles-mêmes au hasard (onglet Réglages) ; le coffre mystère, lui, ne vient que d'un cadeau.</p>
           <button id="link-add" class="primary">+ Lier un cadeau</button>
           <div id="links" class="links"></div>
         </div>
-        <div id="picker" class="card hidden">
-          <h2>Choisir un cadeau</h2>
-          <input id="pick-search" placeholder="🔎 Rechercher un cadeau" autocomplete="off">
-          <div id="pick-list" class="catalog"></div>
-          <div class="row"><input id="pick-other" placeholder="Autre cadeau : son nom exact (en anglais)"><button id="pick-other-ok">Ajouter</button></div>
-          <p class="muted small">La liste contient les cadeaux courants, ceux déjà reçus en live (avec leur image) et ceux chargés depuis TikTok.
-            <button id="gifts-fetch" class="link">📥 Charger tous les cadeaux depuis TikTok</button> (offre payante d'Euler Stream nécessaire).</p>
-          <button id="pick-cancel">Annuler</button>
+        <div class="card">
+          <h2>Liste des cadeaux TikTok</h2>
+          <p class="muted small">Le menu des cadeaux contient <b id="cat-count">0</b> cadeaux : les plus courants, ceux déjà reçus en live (avec leur image) et ceux chargés depuis TikTok.</p>
+          <div class="row"><button id="gifts-fetch">📥 Charger tous les cadeaux depuis TikTok</button></div>
+          <p class="muted small">Demande l'offre payante d'Euler Stream (clé TIKTOK_SIGN_API_KEY).</p>
+          <div class="row"><input id="pick-other" placeholder="Ajouter un cadeau : nom exact (en anglais)" style="flex:3"><button id="pick-other-ok" style="flex:1">Ajouter</button></div>
         </div>
         <div class="row sticky">
           <button id="save-rules" class="primary big">Enregistrer les cadeaux</button>

@@ -83,7 +83,7 @@ test('Scénario 2 : B envoie 3 roses → la machine tremble 3 fois', () => {
 test('Scénario 3 : B fait apparaître le coffre, C le fait tomber → C gagne 2 000 à 5 000, B rien', () => {
   const { g, calls } = setup({}, () => 0.37);
   g.handleEvent({ type: 'join', ...C }, 0);
-  g.handleEvent({ type: 'gift', ...B, giftName: 'TikTok Universe', diamondCount: 44999, repeatCount: 1 }, 0);
+  g.handleEvent({ type: 'gift', ...B, giftName: 'Galaxy', diamondCount: 1000, repeatCount: 1 }, 0);
   assert.deepEqual(calls.spawn, [{ key: 'coffre', by: 'Bob' }]);
   // On vide le tour éventuel de B pour se placer pendant le tour de C
   g.queue = ['c']; g.turn = null; g.prevTurn = null; g.update(1000);
@@ -206,9 +206,10 @@ test('pluie de jetons et objets bonus selon le cadeau lié ; cadeau sans liaison
   const { g, calls } = setup();
   g.handleEvent({ type: 'gift', ...B, giftName: 'Ice Cream Cone', diamondCount: 1 }, 0);
   g.handleEvent({ type: 'gift', ...B, giftName: 'Swan', diamondCount: 699 }, 0);
-  g.handleEvent({ type: 'gift', ...B, giftName: 'Whale diving', diamondCount: 2150, repeatCount: 2 }, 0);
-  assert.deepEqual(calls.coinRain, [2]);
-  assert.deepEqual(calls.spawn.map((s) => s.key), ['rubis', 'topaze', 'topaze']);
+  g.handleEvent({ type: 'gift', ...B, giftName: 'galaxy', diamondCount: 1000, repeatCount: 2 }, 0);
+  assert.deepEqual(calls.coinRain, [2, 10]);
+  assert.deepEqual(calls.spawn.map((s) => s.key), ['coffre', 'coffre']);
+  assert.equal(g.handleEvent({ type: 'gift', ...B, giftName: 'Lion', diamondCount: 29999 }, 0), 'gift-no-rule');
   assert.equal(g.handleEvent({ type: 'gift', ...B, giftName: 'Cadeau inconnu', diamondCount: 50 }, 0), 'gift-no-rule');
 });
 
@@ -318,14 +319,14 @@ test('liste « cadeau → effet » affichée aux viewers, sans prix TikTok', () 
     giftCatalog: [{ id: '5655', name: 'Rose', diamonds: 1, image: 'https://x/rose.png' }, { id: '7', name: 'Money Gun', diamonds: 500 }, { id: '8', name: 'Corgi', diamonds: 299 }],
     giftRules: [
       { name: 'Rose', giftId: '5655', action: 'shake', param: 1 },
-      { name: 'Corgi', giftId: '8', action: 'spawn', param: 'diamant' },
+      { name: 'Corgi', giftId: '8', action: 'spawn', param: 'coffre' },
       { name: 'Money Gun', giftId: '7', action: 'steal', param: 3 },
     ],
   });
   const list = rewardsList(cfg);
   assert.deepEqual(list.map((r) => r.gift), ['Rose', 'Corgi', 'Money Gun']);
   assert.equal(list[0].image, 'https://x/rose.png');
-  assert.match(list[1].text, /Diamant.*500 pts/);
+  assert.match(list[1].text.replace(/\s/g, ' '), /Coffre mystère.*2 000 à 5 000 pts/);
   assert.match(list[2].text, /Vole 3 jetons/);
   assert.ok(list.every((r) => !('cost' in r)));
   const calm = rewardsList({ ...cfg, peaceful: true });
@@ -373,4 +374,34 @@ test('petits cadeaux par défaut : effets doux, puis le vrai identifiant TikTok 
   assert.equal(cat.find((x) => x.name === 'Perfume').image, 'https://x/p.png');
   const rules = adoptGiftIds(g.config.giftRules, cat);
   assert.equal(rules.find((r) => r.name === 'Perfume').giftId, '7934');
+});
+
+test('en live : chaque cadeau TikTok réel déclenche l\'effet qui lui est lié, autant de fois qu\'envoyé', () => {
+  const { mapEvent } = require('../src/tiktok');
+  const { g, calls } = setup({ giftRules: [
+    { name: 'Rose', giftId: '5655', action: 'shake', param: 1 },
+    { name: 'Money Gun', giftId: 'nom-money-gun', action: 'steal', param: 3 },
+    { name: 'Galaxy', giftId: 'nom-galaxy', action: 'spawn', param: 'coffre' },
+  ] });
+  const viewer = (id, name) => ({ id, displayId: name, nickname: name });
+  g.handleEvent(mapEvent('join', { user: viewer('1', 'alice') }), 0);
+  g.handleEvent(mapEvent('join', { user: viewer('2', 'bob') }), 0);
+  g.update(0); // alice joue
+  // Format réel (v3) : la série de 3 roses n'est comptée qu'à la fin, 3 fois
+  const rose = (end) => ({ user: viewer('2', 'bob'), giftId: '5655', repeatCount: 3, repeatEnd: end, gift: { id: '5655', name: 'Rose', diamondCount: 1, type: 1 } });
+  assert.equal(mapEvent('gift', rose(0)), null);
+  g.handleEvent(mapEvent('gift', rose(1)), 10);
+  assert.equal(calls.shake, 3);
+  // Cadeau reconnu par son nom tant que son vrai identifiant n'est pas connu
+  g.handleEvent(mapEvent('gift', { user: viewer('2', 'bob'), giftId: '7168', repeatCount: 1, repeatEnd: 1, gift: { id: '7168', name: 'Money Gun', diamondCount: 500, type: 2 } }), 20);
+  assert.equal(g.players.get('1').tokens, 2); // 5 - 3 volés
+  assert.equal(g.players.get('2').tokens, 8);
+  g.handleEvent(mapEvent('gift', { user: viewer('2', 'bob'), giftId: '5269', repeatCount: 1, repeatEnd: 1, gift: { id: '5269', name: 'Galaxy', diamondCount: 1000, type: 2 } }), 30);
+  assert.deepEqual(calls.spawn.map((s) => s.key), ['coffre']);
+  // Commentaire 2 d'alice : fente du centre ; 100 likes : +5 jetons (réglable)
+  assert.equal(g.handleEvent(mapEvent('chat', { user: viewer('1', 'alice'), content: '2' }), 40), 'launch');
+  assert.equal(calls.launch[0].slot, 1);
+  g.handleEvent(mapEvent('like', { user: viewer('1', 'alice'), count: 60 }), 50);
+  g.handleEvent(mapEvent('like', { user: viewer('1', 'alice'), count: 40 }), 60);
+  assert.equal(g.players.get('1').tokens, 6); // 2 - 1 lancé + 5
 });
