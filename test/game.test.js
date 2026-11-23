@@ -331,3 +331,30 @@ test('liste « cadeau → effet » affichée aux viewers', () => {
   const calm = rewardsList({ ...cfg, peaceful: true });
   assert.ok(!calm.some((r) => /Vole/.test(r.text)));
 });
+
+test('connecteur : événements TikTok au format actuel (v3) bien traduits', () => {
+  const { mapEvent } = require('../src/tiktok');
+  const user = { id: '7123456789', displayId: 'lea_92', nickname: 'Léa', followInfo: { followStatus: '1' } };
+  assert.deepEqual(mapEvent('chat', { user, content: '2' }), { type: 'chat', userId: '7123456789', uniqueId: 'lea_92', nickname: 'Léa', isFollower: true, comment: '2' });
+  assert.equal(mapEvent('like', { user, count: 15 }).likeCount, 15);
+  const gift = mapEvent('gift', { user, giftId: '5655', repeatCount: 3, repeatEnd: 1, gift: { id: '5655', name: 'Rose', diamondCount: 1, type: 1, image: { urlList: ['https://x/rose.png'] } } });
+  assert.deepEqual([gift.giftId, gift.giftName, gift.diamondCount, gift.repeatCount, gift.giftImage], ['5655', 'Rose', 1, 3, 'https://x/rose.png']);
+  // série en cours : ignorée, comptée seulement à la fin
+  assert.equal(mapEvent('gift', { user, repeatEnd: 0, gift: { type: 1, name: 'Rose', diamondCount: 1 } }), null);
+  // ancien format toujours accepté
+  assert.equal(mapEvent('chat', { user: { userId: '9', uniqueId: 'a' }, comment: '1' }).comment, '1');
+  assert.equal(mapEvent('like', { user: { userId: '9' }, likeCount: 7 }).likeCount, 7);
+});
+
+test('le même viewer reste le même joueur entre arrivée, commentaire et likes', () => {
+  const { mapEvent } = require('../src/tiktok');
+  const { g, calls } = setup();
+  const user = { id: '7123456789', displayId: 'lea_92', nickname: 'Léa' };
+  g.handleEvent(mapEvent('join', { user }), 0);
+  g.update(0);
+  assert.equal(g.handleEvent(mapEvent('chat', { user, content: '3' }), 100), 'launch');
+  assert.deepEqual(calls.launch, [{ slot: 2, who: '7123456789' }]);
+  g.handleEvent(mapEvent('like', { user, count: 100 }), 200);
+  assert.equal(g.players.size, 1);
+  assert.equal(g.players.get('7123456789').tokens, 9); // 5 - 1 lancé + 5 (100 likes)
+});
