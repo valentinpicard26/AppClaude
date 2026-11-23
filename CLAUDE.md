@@ -64,9 +64,9 @@ Ces règles ont été suggérées pendant la conception et le créateur a accept
 
 ### À trancher
 
-- [ ] Quels cadeaux (de quelle valeur) font apparaître quels objets bonus, donnent quels pouvoirs ou le bouclier, et lesquels font passer devant ? De combien de places ?
-- [ ] Les 5 jetons d'arrivée sont-ils donnés à tous, ou réservés aux abonnés (qui reçoivent déjà 5 jetons) ?
-- [ ] Les jetons volés vont-ils bien à l'attaquant ?
+- [ ] Quels cadeaux (de quelle valeur) font apparaître quels objets bonus, donnent quels pouvoirs ou le bouclier, et lesquels font passer devant ? De combien de places ? *(Pas encore décidé : en attendant, valeurs proposées par défaut, modifiables dans l'onglet Cadeaux.)*
+- [x] Les 5 jetons d'arrivée sont-ils donnés à tous, ou réservés aux abonnés (qui reçoivent déjà 5 jetons) ? **Décidé : donnés à tous les viewers qui arrivent.** S'y ajoutent 5 jetons par tranche de 100 likes et 5 jetons à l'abonnement.
+- [x] Les jetons volés vont-ils bien à l'attaquant ? **Décidé : oui, les jetons volés vont à l'attaquant.**
 
 ## Événements TikTok et actions du jeu
 
