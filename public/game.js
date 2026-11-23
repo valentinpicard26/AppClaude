@@ -71,6 +71,7 @@
   socket.on('init', (d) => {
     W = d.W; D = d.D; sounds = d.sounds;
     window.TPAudio.setOptions({ sounds: d.sounds, music: d.music, musicVolume: d.musicVolume, sfxVolume: d.sfxVolume });
+    rewards = { show: d.showRewards !== false, seconds: d.rewardsSeconds || 4, list: d.rewards || [] };
     items = {}; for (const it of d.items) items[it.key] = it;
     buildSprites();
   });
@@ -268,6 +269,42 @@
     setTimeout(() => { if (el.parentNode) el.remove(); }, 3200);
   }
 
+  // ---------- Récompenses : « tel cadeau → tel effet », en rotation en bas de l'écran ----------
+  let rewards = { show: true, seconds: 4, list: [] };
+  let rwIndex = 0;
+  const RW_ITEM_IMG = { ...ITEM_FILES };
+  function rewardLines() {
+    const base = [];
+    if (state) {
+      base.push({ html: `<span class="rw-gift">❤️ ${state.likesPerRefill} likes</span><span class="rw-arrow">→</span><span class="rw-eff">🪙 ${state.tokensPerLikeRefill} jetons</span>` });
+      base.push({ html: '<span class="rw-gift">➕ Abonne-toi</span><span class="rw-arrow">→</span><span class="rw-eff">🪙 ${state.followTokens} jetons</span>' });
+      if (state.peaceful) base.push({ html: '<span class="rw-eff">🕊️ Mode paisible : aucun pouvoir contre les joueurs</span>' });
+    }
+    if (!rewards.show) return base;
+    const gifts = rewards.list.map((r) => {
+      const gImg = r.image ? `<img class="rw-img" src="${esc(r.image)}" alt="" referrerpolicy="no-referrer">` : '🎁';
+      const iImg = r.item && RW_ITEM_IMG[r.item] ? `<img class="rw-img" src="assets/${RW_ITEM_IMG[r.item]}" alt="">` : r.icon;
+      const cost = r.cost ? ` <small>${esc(r.cost)}</small>` : '';
+      return { html: `<span class="rw-gift">${gImg} ${esc(r.gift === 'Cadeau' && r.cost ? 'Cadeau' : r.gift)}${cost}</span><span class="rw-arrow">→</span><span class="rw-eff">${iImg} ${esc(r.text)}</span>` };
+    });
+    return [...base, ...gifts];
+  }
+  function nextReward() {
+    const lines = rewardLines();
+    const el = $('rw-line');
+    if (!lines.length) { el.innerHTML = ''; return; }
+    rwIndex = rwIndex % lines.length;
+    el.classList.add('out');
+    setTimeout(() => {
+      const fresh = el.cloneNode(false); fresh.className = '';
+      fresh.innerHTML = lines[rwIndex].html;
+      el.replaceWith(fresh);
+      rwIndex++;
+    }, 300);
+    setTimeout(nextReward, (rewards.seconds || 4) * 1000);
+  }
+  setTimeout(nextReward, 1500);
+
   // ---------- Sons : voir audio.js (synthétisés, donc originaux) ----------
   function sfx(kind) { window.TPAudio.sfx(kind); }
 
@@ -294,7 +331,7 @@
       ? state.queue.map((p, i) => `<li class="${p.boosted ? 'boost' : ''}"><span class="n">${i + 1}. ${p.shield ? '🛡️' : ''}${esc(p.nickname)}</span><span class="v">🪙${p.tokens}</span></li>`).join('')
       : '<li><span class="n">Personne</span></li>';
     $('queue-n').textContent = state.queueLength > state.queue.length ? `(${state.queueLength})` : '';
-    $('likes-hint').textContent = `❤️ ${state.likesPerRefill} likes = ${state.tokensPerLikeRefill} jetons · Abonne-toi = jetons bonus${state.peaceful ? ' · 🕊️ Mode paisible' : ''}`;
+
     turnClock = { at: performance.now(), remaining: t ? t.remainingMs : 0, total: t ? t.totalMs : 1, phase: t?.phase, paused: state.status === 'paused' };
   }
   let turnClock = null;

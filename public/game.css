@@ -55,7 +55,15 @@ canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block;
 .panel li .v { color: var(--gold); }
 .panel li.boost .n::before { content: "⚡"; }
 #board li:first-child .n { color: var(--gold); }
-#likes-hint { flex-basis: 100%; text-align: center; background: rgba(20,0,6,0.7); border-radius: 1em; padding: 0.15em 0.5em; font-family: system-ui, sans-serif; font-weight: 800; font-size: 0.62em; color: #ffd0d6; }
+#rewards { flex-basis: 100%; min-height: 2.4em; display: flex; align-items: center; justify-content: center; text-align: center; background: rgba(20,0,6,0.82); border: 1.5px solid rgba(255,211,77,0.7); border-radius: 0.8em; padding: 0.2em 0.5em; font-family: system-ui, sans-serif; font-weight: 800; font-size: 0.66em; color: #fff; overflow: hidden; }
+#rw-line { display: flex; align-items: center; justify-content: center; gap: 0.45em; animation: rwIn 0.45s ease-out; }
+#rw-line.out { opacity: 0; transform: translateY(-0.4em); transition: opacity 0.3s, transform 0.3s; }
+.rw-gift { display: flex; align-items: center; gap: 0.3em; color: var(--gold); white-space: nowrap; }
+.rw-gift small { color: #ffd0d6; font-weight: 700; }
+.rw-img { width: 1.9em; height: 1.9em; object-fit: contain; }
+.rw-arrow { color: var(--red); font-size: 1.2em; }
+.rw-eff { display: flex; align-items: center; gap: 0.3em; text-align: left; line-height: 1.15; }
+@keyframes rwIn { from { opacity: 0; transform: translateY(0.5em); } to { opacity: 1; transform: none; } }
 
 #offline { position: fixed; left: 50%; top: 8px; transform: translateX(-50%); background: #c4001a; padding: 6px 12px; border-radius: 8px; font: 700 14px system-ui; }
 #fs { position: fixed; right: 8px; top: 8px; width: 40px; height: 40px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(0, 0, 0, 0.45); color: #fff; font-size: 20px; }
