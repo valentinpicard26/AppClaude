@@ -126,13 +126,9 @@
   function effectOptions(r) {
     const effects = st?.effects || [];
     const cur = effects.find((e) => e.action === r.action && String(e.param) === String(r.param));
-    const groups = [...new Set(effects.map((e) => e.group))];
-    let html = cur ? '' : '<option value="" selected>— Effet personnalisé —</option>';
-    for (const gname of groups) {
-      html += `<optgroup label="${esc(gname)}">` + effects.filter((e) => e.group === gname)
-        .map((e) => `<option value="${esc(e.id)}" ${cur && cur.id === e.id ? 'selected' : ''}>${e.icon} ${esc(e.label)}</option>`).join('') + '</optgroup>';
-    }
-    return html;
+    // Effet qui n'est plus proposé (retiré du menu) : affiché tel quel, à remplacer.
+    const old = cur ? '' : `<option value="" selected>⚠️ Effet retiré (${esc(r.action)}) : choisis-en un</option>`;
+    return old + effects.map((e) => `<option value="${esc(e.id)}" ${cur && cur.id === e.id ? 'selected' : ''}>${e.icon} ${esc(e.label)}</option>`).join('');
   }
   function imgHtml(g) { return g && g.image ? `<img src="${esc(g.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="noimg">🎁</span>'; }
   // Cadeaux ajoutés à la main dans cette session (envoyés au serveur à l'enregistrement).

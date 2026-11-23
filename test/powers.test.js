@@ -4,9 +4,20 @@ const assert = require('node:assert/strict');
 const { Game } = require('../src/game');
 const { defaultConfig, applyConfigPatch } = require('../src/config');
 
+// Le moteur sait toujours jouer bouclier et jeton dévié (retirés du menu pour l'instant) : on les lie ici pour les tester.
+const TEST_RULES = [
+  { name: 'Perfume', action: 'jinxShake', param: 1 },
+  { name: 'Doughnut', action: 'deviate', param: 1 },
+  { name: 'Sunglasses', action: 'loseTokens', param: 2 },
+  { name: 'Confetti', action: 'shield', param: 0 },
+  { name: 'Money Gun', action: 'steal', param: 3 },
+  { name: 'Lock1', action: 'blockSlot', param: 0 },
+  { name: 'Lock2', action: 'blockSlot', param: 1 },
+  { name: 'Lock3', action: 'blockSlot', param: 2 },
+];
 function setup(patch = {}, random = () => 0.5) {
   const calls = { launch: [], shake: 0 };
-  const g = new Game(applyConfigPatch(defaultConfig(), patch), {
+  const g = new Game(applyConfigPatch(defaultConfig(), { giftRules: TEST_RULES, ...patch }), {
     random,
     actions: { launch: (slot, who) => calls.launch.push({ slot, who: who.playerId }), shake: () => { calls.shake++; } },
   });
@@ -147,4 +158,39 @@ test('le bouclier ne s\'use pas pendant la pause', () => {
   g.resume(65000);
   g.handleEvent(gift(B, 399), 69000);
   assert.equal(g.players.get('a').tokens, 5);
+});
+
+test('fente bloquée : le joueur ne peut pas l\'utiliser pendant son tour, il en choisit une autre', () => {
+  const { g, calls } = aPlaying();
+  const lock = (n) => ({ type: 'gift', ...B, giftName: 'Lock' + n, diamondCount: 5, repeatCount: 1 });
+  g.handleEvent(lock(2), 100);
+  assert.deepEqual(g.publicState(100).turn.blocked, [1]);
+  assert.equal(g.handleEvent({ type: 'chat', ...A, comment: '2' }, 200), 'slot-blocked');
+  assert.equal(calls.launch.length, 0);
+  assert.equal(g.handleEvent({ type: 'chat', ...A, comment: '3' }, 300), 'launch');
+  assert.equal(calls.launch[0].slot, 2);
+  // Tour suivant (B) : plus rien de bloqué
+  g.update(300 + g.config.afterLaunchMs);
+  assert.equal(g.turn.playerId, 'b');
+  assert.deepEqual(g.publicState(2000).turn.blocked, []);
+});
+
+test('fentes bloquées : au moins une reste libre, et le lancer automatique évite les fentes bloquées', () => {
+  const { g, calls } = aPlaying({ powerCooldownSeconds: 0 }, () => 0.99);
+  const lock = (n) => ({ type: 'gift', ...B, giftName: 'Lock' + n, diamondCount: 5, repeatCount: 1 });
+  g.handleEvent(lock(3), 100);
+  g.handleEvent(lock(2), 110);
+  g.handleEvent(lock(1), 120);
+  assert.deepEqual(g.publicState(130).turn.blocked.sort(), [1, 2]);
+  g.update(10000);
+  assert.equal(calls.launch[0].slot, 0);
+});
+
+test('fente bloquée envoyée pendant que personne ne vise : appliquée au prochain tour', () => {
+  const { g } = setup();
+  g.handleEvent({ type: 'gift', ...B, giftName: 'Lock1', diamondCount: 5 }, 0);
+  g.turn = null; g.queue = [];
+  g.handleEvent({ type: 'join', ...A }, 10);
+  g.update(20);
+  assert.deepEqual(g.publicState(20).turn.blocked, [0]);
 });

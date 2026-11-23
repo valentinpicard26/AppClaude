@@ -45,16 +45,16 @@ function defaultItems() {
 const KNOWN_GIFTS = [
   { id: '5655', name: 'Rose', diamonds: 1, effect: 'shake' },
   { id: 'nom-gg', name: 'GG', diamonds: 1, effect: 'shake' },
-  { id: 'nom-ice-cream-cone', name: 'Ice Cream Cone', diamonds: 1, effect: 'coinRain2' },
+  { id: 'nom-ice-cream-cone', name: 'Ice Cream Cone', diamonds: 1, effect: 'shake' },
   { id: 'nom-thumbs-up', name: 'Thumbs Up', diamonds: 1 },
-  { id: 'nom-finger-heart', name: 'Finger Heart', diamonds: 5, effect: 'queueSkip2' },
+  { id: 'nom-finger-heart', name: 'Finger Heart', diamonds: 5, effect: 'block1' },
   { id: 'nom-perfume', name: 'Perfume', diamonds: 20, effect: 'jinxShake' },
-  { id: 'nom-doughnut', name: 'Doughnut', diamonds: 30, effect: 'deviate' },
-  { id: 'nom-confetti', name: 'Confetti', diamonds: 100, effect: 'shield' },
-  { id: 'nom-sunglasses', name: 'Sunglasses', diamonds: 199, effect: 'lose2' },
-  { id: 'nom-corgi', name: 'Corgi', diamonds: 299, effect: 'coinRain5' },
+  { id: 'nom-doughnut', name: 'Doughnut', diamonds: 30, effect: 'block2' },
+  { id: 'nom-confetti', name: 'Confetti', diamonds: 100, effect: 'block3' },
+  { id: 'nom-sunglasses', name: 'Sunglasses', diamonds: 199, effect: 'lose3' },
+  { id: 'nom-corgi', name: 'Corgi', diamonds: 299 },
   { id: 'nom-money-gun', name: 'Money Gun', diamonds: 500, effect: 'steal3' },
-  { id: 'nom-swan', name: 'Swan', diamonds: 699, effect: 'coinRain10' },
+  { id: 'nom-swan', name: 'Swan', diamonds: 699 },
   { id: 'nom-galaxy', name: 'Galaxy', diamonds: 1000, effect: 'spawn:coffre' },
   { id: 'nom-fireworks', name: 'Fireworks', diamonds: 1088 },
   { id: 'nom-whale-diving', name: 'Whale Diving', diamonds: 2150 },
@@ -155,7 +155,7 @@ function applyConfigPatch(cfg, patch) {
         return n;
       });
     } else if (k === 'giftRules' && Array.isArray(v)) {
-      const actions = ['shake', 'coinRain', 'spawn', 'queueSkip', 'shield', 'jinxShake', 'deviate', 'loseTokens', 'steal', 'none'];
+      const actions = ['shake', 'coinRain', 'spawn', 'queueSkip', 'shield', 'jinxShake', 'deviate', 'loseTokens', 'steal', 'blockSlot', 'none'];
       // Seules les liaisons à un cadeau précis sont gardées (les anciennes règles « par valeur » sont abandonnées).
       out.giftRules = v.slice(0, 300).filter((r) => r && actions.includes(r.action) && (r.name || r.giftId)).map((r) => ({
         name: String(r.name || '').slice(0, 60),
@@ -163,7 +163,7 @@ function applyConfigPatch(cfg, patch) {
         minDiamonds: Math.max(0, Number(r.minDiamonds) || 0),
         maxDiamonds: Math.max(0, Number(r.maxDiamonds) || 0),
         action: r.action,
-        param: r.action === 'spawn' ? String(r.param || 'diamant') : Math.max(0, Math.round(Number(r.param) || 0)),
+        param: r.action === 'spawn' ? String(r.param || 'coffre') : r.action === 'blockSlot' ? Math.min(2, Math.max(0, Math.round(Number(r.param) || 0))) : Math.max(0, Math.round(Number(r.param) || 0)),
       }));
     } else if (k === 'giftCatalog' && Array.isArray(v)) {
       out.giftCatalog = sanitizeCatalog(v);

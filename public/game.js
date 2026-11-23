@@ -222,6 +222,7 @@
           deviate: `↪️ ${b} va dévier le jeton de ${t}&nbsp;!`,
           loseTokens: e.amount ? `💥 ${t} perd ${e.amount} jeton${e.amount > 1 ? 's' : ''} (${b})` : `💥 ${b} attaque ${t}, qui garde son dernier jeton`,
           steal: e.amount ? `🦹 ${b} vole ${e.amount} jeton${e.amount > 1 ? 's' : ''} à ${t}&nbsp;!` : `🦹 ${b} tente de voler ${t}, qui garde son dernier jeton`,
+          blockSlot: `🔒 ${b} bloque la fente ${state?.commands?.[e.amount] ?? e.amount + 1} de ${t}&nbsp;!`,
         }[e.kind];
         if (msg) announce(msg, 'red');
         flashOn(e.kind === 'steal' ? 'rgba(150,40,255,0.35)' : e.kind === 'deviate' ? 'rgba(40,160,255,0.3)' : 'rgba(255,40,60,0.35)', 600);
@@ -230,6 +231,7 @@
       }
       case 'shield': announce(`🛡️ @${e.player} est protégé·e ${e.seconds}&nbsp;s&nbsp;!`, 'shield'); sfx('shield'); break;
       case 'blocked': announce(`🛡️ Bloqué ! @${e.target} est protégé·e`, 'shield'); flashOn('rgba(255,211,77,0.35)', 600); sfx('shield'); break;
+      case 'slotBlocked': tick(`🔒 Fente ${state?.commands?.[e.slot] ?? e.slot + 1} bloquée : @${e.player}, choisis une autre fente !`); sfx('power'); break;
       case 'pending': tick(`⏳ Pouvoir de @${e.by} en attente pour ${e.target ? '@' + e.target : 'le prochain joueur'}`); break;
       case 'peaceful': tick(`🕊️ Mode paisible : pouvoir de @${e.by} désactivé`); break;
       case 'shake': shakeUntil = performance.now() + 600; tick(`🌹 Secousse offerte par @${e.by}`); sfx('shake'); break;
@@ -257,6 +259,12 @@
       const a = Math.random() * Math.PI * 2, v = 2 + Math.random() * 6;
       parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 3, t0: performance.now(), life: 700 + Math.random() * 600, c: Math.random() < 0.5 ? '#ffd34d' : '#ff4d5e' });
     }
+  }
+  // Photo de profil ronde (ou initiale sur fond coloré si TikTok n'en fournit pas).
+  function avatar(p) {
+    if (p.avatar) return `<img class="av" src="${esc(p.avatar)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">`;
+    const hue = [...String(p.nickname || '')].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 0);
+    return `<span class="av av-i" style="background:hsl(${hue} 65% 45%)">${esc((p.nickname || '?')[0].toUpperCase())}</span>`;
   }
   function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   function tick(text) {
@@ -323,10 +331,12 @@
     const t = state.turn;
     $('turn').classList.toggle('hidden', !t);
     if (t) {
-      $('turn-name').textContent = '@' + t.nickname;
+      $('turn-name').innerHTML = avatar(t) + esc('@' + t.nickname);
       const marks = (t.shieldMs > 0 ? `🛡️${Math.ceil(t.shieldMs / 1000)}s ` : '') + (t.jinx ? '🌪️ ' : '') + (t.deviate ? '↪️ ' : '');
       $('turn-tokens').textContent = `${marks}🪙 ${t.tokens}`;
-      $('turn-hint').textContent = t.phase === 'aim' ? `Écris ${state.commands[0]}, ${state.commands[1]} ou ${state.commands[2]}` : 'Jeton lancé !';
+      const free = [0, 1, 2].filter((i) => !(t.blocked || []).includes(i)).map((i) => state.commands[i]);
+      const freeTxt = free.length > 1 ? `${free.slice(0, -1).join(', ')} ou ${free[free.length - 1]}` : free[0];
+      $('turn-hint').textContent = t.phase === 'aim' ? `Écris ${freeTxt}${t.blocked && t.blocked.length ? ' 🔒' : ''}` : 'Jeton lancé !';
     }
     const idle = !t && state.queueLength === 0 && state.status === 'running';
     $('idle').classList.toggle('hidden', !idle);
@@ -334,7 +344,7 @@
     $('idle-cmds').textContent = `${state.commands[0]}, ${state.commands[1]} ou ${state.commands[2]}`;
     $('paused').classList.toggle('hidden', state.status !== 'paused');
     $('board-list').innerHTML = state.leaderboard.length
-      ? state.leaderboard.map((p, i) => `<li><span class="n">${i + 1}. ${esc(p.nickname)}</span><span class="v">${fmt(p.points)}</span></li>`).join('')
+      ? state.leaderboard.map((p, i) => `<li><span class="n">${i + 1}. ${avatar(p)}${esc(p.nickname)}</span><span class="v">${fmt(p.points)}</span></li>`).join('')
       : '<li><span class="n">Pas encore de points</span></li>';
     const roster = state.roster || [];
     let pos = 0;
@@ -342,7 +352,7 @@
       ? roster.map((p) => {
         const mark = p.current ? '▶ ' : p.empty ? '' : `${++pos}. `;
         const cls = [p.current ? 'cur' : '', p.boosted ? 'boost' : '', p.empty ? 'empty' : ''].join(' ');
-        return `<li class="${cls}"><span class="n">${mark}${p.shield ? '🛡️' : ''}${esc(p.nickname)}</span><span class="v">🪙 ${p.tokens}</span></li>`;
+        return `<li class="${cls}"><span class="n">${mark}${avatar(p)}${p.shield ? '🛡️' : ''}${esc(p.nickname)}</span><span class="v">🪙 ${p.tokens}</span></li>`;
       }).join('')
       : '<li><span class="n">Personne</span></li>';
     $('queue-n').textContent = state.queueLength + (state.turn ? 1 : 0) > roster.length ? `(${state.queueLength + (state.turn ? 1 : 0)})` : '';
@@ -457,12 +467,43 @@
     if (!state?.turn || state.turn.phase !== 'aim') return;
     ctx.save();
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const blocked = state.turn.blocked || [];
     SLOT_SCREEN.forEach(([x, y], i) => {
+      if (blocked.includes(i)) { drawLock(x, y, now); return; }
       const pulse = 1 + 0.08 * Math.sin(now / 160 + i);
       ctx.font = `900 ${Math.round(54 * pulse)}px Arial Black, Arial`;
       ctx.lineWidth = 8; ctx.strokeStyle = '#3a0008'; ctx.strokeText(state.commands[i], x, y + 118);
       ctx.fillStyle = '#ffd34d'; ctx.fillText(state.commands[i], x, y + 118);
     });
+    ctx.restore();
+  }
+
+  // Fente bloquée : planche de bois clouée en travers + cadenas.
+  function drawLock(x, y, now) {
+    ctx.save();
+    ctx.translate(x, y + 5);
+    ctx.rotate(-0.22);
+    const w = 150, h = 44;
+    const wood = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+    wood.addColorStop(0, '#c98b4a'); wood.addColorStop(0.5, '#a5672e'); wood.addColorStop(1, '#7a4719');
+    ctx.fillStyle = wood; ctx.strokeStyle = '#4a2a0c'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-w / 2, -h / 2, w, h, 6) : ctx.rect(-w / 2, -h / 2, w, h); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(74,42,12,0.55)'; ctx.lineWidth = 2;
+    for (const yy of [-9, 3, 12]) { ctx.beginPath(); ctx.moveTo(-w / 2 + 10, yy); ctx.bezierCurveTo(-20, yy - 4, 20, yy + 4, w / 2 - 10, yy); ctx.stroke(); }
+    ctx.fillStyle = '#d9d9d9';
+    for (const nx of [-w / 2 + 12, w / 2 - 12]) { ctx.beginPath(); ctx.arc(nx, 0, 5, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
+    // Cadenas
+    const pulse = 1 + 0.06 * Math.sin(now / 200);
+    ctx.save();
+    ctx.translate(x, y + 70); ctx.scale(pulse, pulse);
+    ctx.strokeStyle = '#d7d7d7'; ctx.lineWidth = 9;
+    ctx.beginPath(); ctx.arc(0, -16, 17, Math.PI, 0); ctx.lineTo(17, -4); ctx.moveTo(-17, -16); ctx.lineTo(-17, -4); ctx.stroke();
+    const body = ctx.createLinearGradient(0, -6, 0, 34);
+    body.addColorStop(0, '#ffe07a'); body.addColorStop(1, '#c98a00');
+    ctx.fillStyle = body; ctx.strokeStyle = '#6b4300'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-27, -6, 54, 42, 8) : ctx.rect(-27, -6, 54, 42); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#4a2a00'; ctx.beginPath(); ctx.arc(0, 10, 6, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(-2.5, 12, 5, 12);
     ctx.restore();
   }
 

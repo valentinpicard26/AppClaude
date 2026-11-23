@@ -5,9 +5,17 @@ const { Game } = require('../src/game');
 const { defaultConfig, applyConfigPatch } = require('../src/config');
 
 // Fabrique une partie avec des actions espionnées et une horloge manuelle.
+// Liaisons de test (dont des effets retirés du menu mais toujours gérés par le moteur).
+const TEST_RULES = [
+  { name: 'Rose', giftId: '5655', action: 'shake', param: 1 },
+  { name: 'Ice Cream Cone', action: 'coinRain', param: 2 },
+  { name: 'Finger Heart', action: 'queueSkip', param: 2 },
+  { name: 'Swan', action: 'coinRain', param: 10 },
+  { name: 'Galaxy', action: 'spawn', param: 'coffre' },
+];
 function setup(patch = {}, random = () => 0.5) {
   const calls = { launch: [], shake: 0, spawn: [], coinRain: [] };
-  const cfg = applyConfigPatch(defaultConfig(), patch);
+  const cfg = applyConfigPatch(defaultConfig(), { giftRules: TEST_RULES, ...patch });
   const g = new Game(cfg, {
     random,
     actions: {
@@ -326,7 +334,7 @@ test('liste « cadeau → effet » affichée aux viewers, sans prix TikTok', () 
   const list = rewardsList(cfg);
   assert.deepEqual(list.map((r) => r.gift), ['Rose', 'Corgi', 'Money Gun']);
   assert.equal(list[0].image, 'https://x/rose.png');
-  assert.match(list[1].text.replace(/\s/g, ' '), /Coffre mystère.*2 000 à 5 000 pts/);
+  assert.match(list[1].text.replace(/\s/g, ' '), /coffre mystère.*2 000 à 5 000 pts/i);
   assert.match(list[2].text, /Vole 3 jetons/);
   assert.ok(list.every((r) => !('cost' in r)));
   const calm = rewardsList({ ...cfg, peaceful: true });
@@ -336,7 +344,7 @@ test('liste « cadeau → effet » affichée aux viewers, sans prix TikTok', () 
 test('connecteur : événements TikTok au format actuel (v3) bien traduits', () => {
   const { mapEvent } = require('../src/tiktok');
   const user = { id: '7123456789', displayId: 'lea_92', nickname: 'Léa', followInfo: { followStatus: '1' } };
-  assert.deepEqual(mapEvent('chat', { user, content: '2' }), { type: 'chat', userId: '7123456789', uniqueId: 'lea_92', nickname: 'Léa', isFollower: true, comment: '2' });
+  assert.deepEqual(mapEvent('chat', { user, content: '2' }), { type: 'chat', userId: '7123456789', uniqueId: 'lea_92', nickname: 'Léa', avatar: '', isFollower: true, comment: '2' });
   assert.equal(mapEvent('like', { user, count: 15 }).likeCount, 15);
   const gift = mapEvent('gift', { user, giftId: '5655', repeatCount: 3, repeatEnd: 1, gift: { id: '5655', name: 'Rose', diamondCount: 1, type: 1, image: { urlList: ['https://x/rose.png'] } } });
   assert.deepEqual([gift.giftId, gift.giftName, gift.diamondCount, gift.repeatCount, gift.giftImage], ['5655', 'Rose', 1, 3, 'https://x/rose.png']);
@@ -360,20 +368,23 @@ test('le même viewer reste le même joueur entre arrivée, commentaire et likes
   assert.equal(g.players.get('7123456789').tokens, 9); // 5 - 1 lancé + 5 (100 likes)
 });
 
-test('petits cadeaux par défaut : effets doux, puis le vrai identifiant TikTok remplace le provisoire', () => {
+test('liaisons par défaut, puis le vrai identifiant TikTok remplace le provisoire', () => {
   const { mergeCatalog, adoptGiftIds } = require('../src/config');
-  const { g, calls } = setup();
-  // Reconnus par leur nom même avant d'avoir leur vrai identifiant
-  g.handleEvent({ type: 'gift', ...B, giftId: '9999', giftName: 'Ice Cream Cone', diamondCount: 1 }, 0);
-  assert.deepEqual(calls.coinRain, [2]);
+  const calls = { shake: 0, spawn: [] };
+  const g = new Game(defaultConfig(), { actions: { shake: () => { calls.shake++; }, spawn: (k) => calls.spawn.push(k) } });
   g.handleEvent({ type: 'gift', ...B, giftId: '5655', giftName: 'Rose', diamondCount: 1 }, 0);
-  assert.equal(calls.shake, 1);
-  // Le cadeau reçu prend la place de l'entrée provisoire, et la règle suit le vrai identifiant
+  g.handleEvent({ type: 'gift', ...B, giftId: '9999', giftName: 'Ice Cream Cone', diamondCount: 1 }, 0);
+  assert.equal(calls.shake, 2);
+  g.handleEvent({ type: 'gift', ...B, giftId: '5269', giftName: 'Galaxy', diamondCount: 1000 }, 0);
+  assert.deepEqual(calls.spawn, ['coffre']);
+  // Seuls les effets proposés dans le menu sont utilisés par défaut
+  const { effectsList } = require('../src/effects');
+  const menu = effectsList(g.config).map((e) => e.action + ':' + e.param);
+  assert.ok(g.config.giftRules.every((r) => menu.includes(r.action + ':' + r.param)));
   const cat = mergeCatalog(g.config.giftCatalog, [{ id: '7934', name: 'Perfume', diamonds: 20, image: 'https://x/p.png' }]);
   assert.ok(!cat.some((x) => x.id === 'nom-perfume'));
   assert.equal(cat.find((x) => x.name === 'Perfume').image, 'https://x/p.png');
-  const rules = adoptGiftIds(g.config.giftRules, cat);
-  assert.equal(rules.find((r) => r.name === 'Perfume').giftId, '7934');
+  assert.equal(adoptGiftIds(g.config.giftRules, cat).find((r) => r.name === 'Perfume').giftId, '7934');
 });
 
 test('en live : chaque cadeau TikTok réel déclenche l\'effet qui lui est lié, autant de fois qu\'envoyé', () => {

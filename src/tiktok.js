@@ -107,6 +107,7 @@ function mapEvent(type, d) {
     userId: id !== undefined && id !== null && id !== '' && id !== '0' ? String(id) : String(uniqueId || ''),
     uniqueId,
     nickname: u.nickname || uniqueId,
+    avatar: u.avatarThumb?.urlList?.[0] || u.avatarThumb?.url_list?.[0] || u.profilePictureUrl || '',
     isFollower: Number(u.followInfo?.followStatus) >= 1,
   };
   switch (type) {

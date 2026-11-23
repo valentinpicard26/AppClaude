@@ -6,7 +6,7 @@
 
 const SLOT_NAMES = ['gauche', 'centre', 'droite'];
 // Pouvoirs qui gênent le joueur dont c'est le tour.
-const HARMFUL = ['jinxShake', 'deviate', 'loseTokens', 'steal'];
+const HARMFUL = ['jinxShake', 'deviate', 'loseTokens', 'steal', 'blockSlot'];
 
 class Game {
   constructor(config, { actions = {}, random = Math.random, onFx = () => {} } = {}) {
@@ -49,7 +49,7 @@ class Game {
     let p = this.players.get(id);
     if (!p) {
       p = {
-        id, nickname: cleanName(user.nickname || user.uniqueId || id), tokens: 0, points: 0,
+        id, nickname: cleanName(user.nickname || user.uniqueId || id), avatar: cleanAvatar(user.avatar), tokens: 0, points: 0,
         likeRemainder: 0, followed: false, missedTurns: 0, active: true, boosted: false,
         joinedAt: now, lastSeen: now, gifts: 0, shieldUntil: 0, lastHitAt: null, pending: [],
       };
@@ -60,6 +60,7 @@ class Game {
       this.fx({ type: 'join', player: p.nickname });
     } else {
       if (user.nickname) p.nickname = cleanName(user.nickname);
+      if (user.avatar) p.avatar = cleanAvatar(user.avatar);
       p.lastSeen = now;
       if (!p.active) { p.active = true; p.missedTurns = 0; }
     }
@@ -102,6 +103,11 @@ class Game {
         if (slot === null) return 'chat';
         if (this.status !== 'running' || !this.turn || this.turn.phase !== 'aim' || this.turn.playerId !== p.id) {
           return 'ignored-not-your-turn';
+        }
+        if ((this.turn.blocked || []).includes(slot)) {
+          // Fente bloquée par un pouvoir : le joueur doit en choisir une autre (son tour continue).
+          this.fx({ type: 'slotBlocked', player: p.nickname, slot });
+          return 'slot-blocked';
         }
         this.launchFor(p, slot, now, false);
         return 'launch';
@@ -193,7 +199,7 @@ class Game {
       case 'shield':
         this.giveShield(p, now);
         break;
-      case 'jinxShake': case 'deviate': case 'loseTokens': case 'steal':
+      case 'jinxShake': case 'deviate': case 'loseTokens': case 'steal': case 'blockSlot':
         this.castPower({ kind: rule.action, param: rule.param, by: p.id }, now);
         break;
       default:
@@ -251,7 +257,7 @@ class Game {
     const by = this.players.get(pw.by);
     const byName = by?.nickname || '?';
     const isAiming = this.turn && this.turn.playerId === target.id && this.turn.phase === 'aim';
-    if (pw.kind === 'deviate' && !isAiming) {
+    if ((pw.kind === 'deviate' || pw.kind === 'blockSlot') && !isAiming) {
       // Le jeton est déjà parti : la déviation s'applique à son prochain lancer.
       (target.pending ||= []).push(pw);
       this.fx({ type: 'pending', by: byName, kind: pw.kind, target: target.nickname });
@@ -274,6 +280,14 @@ class Game {
       case 'deviate':
         this.turn.deviate = true;
         break;
+      case 'blockSlot': {
+        // Bloque une fente pendant ce tour ; on laisse toujours au moins une fente libre.
+        const blocked = (this.turn.blocked ||= []);
+        const slot = Math.min(2, Math.max(0, Number(pw.param) || 0));
+        if (!blocked.includes(slot) && blocked.length < 2) blocked.push(slot);
+        amount = slot;
+        break;
+      }
       case 'loseTokens': {
         amount = Math.max(0, Math.min(Number(pw.param) || 0, target.tokens - 1)); // toujours au moins 1 jeton
         target.tokens -= amount;
@@ -327,7 +341,8 @@ class Game {
     let deviatedFrom = null;
     if (this.turn.deviate) {
       // Jeton dévié : il part dans une autre fente, au hasard.
-      const others = [0, 1, 2].filter((x) => x !== slot);
+      let others = [0, 1, 2].filter((x) => x !== slot && !(this.turn.blocked || []).includes(x));
+      if (!others.length) others = [0, 1, 2].filter((x) => x !== slot);
       deviatedFrom = slot;
       slot = others[Math.floor(this.random() * others.length) % others.length];
       this.turn.deviate = false;
@@ -351,7 +366,8 @@ class Game {
       if (this.turn.phase === 'aim' && now >= this.turn.deadline) {
         const p = this.players.get(this.turn.playerId);
         p.missedTurns++;
-        const slot = Math.floor(this.random() * 3);
+        const free = [0, 1, 2].filter((x) => !(this.turn.blocked || []).includes(x));
+        const slot = free[Math.floor(this.random() * free.length) % free.length];
         if (!this.launchFor(p, slot, now, true)) this.endTurn(now);
       } else if (this.turn.phase === 'launched' && now >= this.turn.endsAt) {
         this.endTurn(now);
@@ -438,7 +454,7 @@ class Game {
   leaderboard(n = 5) {
     return [...this.players.values()].filter((p) => p.points > 0)
       .sort((a, b) => b.points - a.points || a.joinedAt - b.joinedAt).slice(0, n)
-      .map((p) => ({ nickname: p.nickname, points: p.points }));
+      .map((p) => ({ nickname: p.nickname, avatar: p.avatar || '', points: p.points }));
   }
 
   publicState(now) {
@@ -451,7 +467,7 @@ class Game {
         remainingMs: t.phase === 'aim' ? Math.max(0, t.deadline - (this.status === 'paused' ? this.pausedAt : now)) : 0,
         totalMs: this.config.turnSeconds * 1000, n: t.n,
         shieldMs: Math.max(0, (tp.shieldUntil || 0) - (this.status === 'paused' ? this.pausedAt : now)),
-        jinx: !!t.jinxShake, deviate: !!t.deviate,
+        jinx: !!t.jinxShake, deviate: !!t.deviate, blocked: t.blocked || [], avatar: tp.avatar || '',
       } : null,
       queue: this.queue.slice(0, 6).map((id) => { const p = this.players.get(id); return { nickname: p.nickname, tokens: p.tokens, boosted: p.boosted, shield: this.hasShield(p, now) }; }),
       peaceful: !!this.config.peaceful,
@@ -465,7 +481,7 @@ class Game {
   }
 
   roster(now, max = 7) {
-    const row = (p, extra) => ({ nickname: p.nickname, tokens: p.tokens, boosted: p.boosted, shield: this.hasShield(p, now), ...extra });
+    const row = (p, extra) => ({ nickname: p.nickname, avatar: p.avatar || '', tokens: p.tokens, boosted: p.boosted, shield: this.hasShield(p, now), ...extra });
     const out = [];
     if (this.turn) { const p = this.players.get(this.turn.playerId); if (p) out.push(row(p, { current: true })); }
     for (const id of this.queue) { if (out.length >= max) break; out.push(row(this.players.get(id), {})); }
@@ -518,6 +534,9 @@ class Game {
 
 // Nom de cadeau comparable : minuscules, sans espaces ni ponctuation (« Whale diving » = « Whale Diving »).
 function giftKey(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, ''); }
+
+// Photo de profil TikTok : seulement une adresse https.
+function cleanAvatar(u) { return typeof u === 'string' && /^https:\/\//.test(u) ? u.slice(0, 600) : ''; }
 
 function cleanName(s) {
   // Retire les caractères de contrôle et limite la longueur affichée.
