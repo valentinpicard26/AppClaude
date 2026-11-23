@@ -59,3 +59,4 @@ nav button.on { color: var(--gold); }
 #login input { margin-bottom: 10px; }
 #toast { position: fixed; left: 50%; bottom: 86px; transform: translateX(-50%); background: #000c; color: #fff; padding: 8px 14px; border-radius: 10px; font-weight: 700; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 9; }
 #toast.show { opacity: 1; }
+.big-switch { margin: 12px 0 4px; padding: 10px; border-radius: 10px; background: #12030a; border: 1px solid var(--line); }

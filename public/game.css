@@ -44,6 +44,7 @@ canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block;
 #announce { position: absolute; left: 0; right: 0; top: 44%; text-align: center; }
 .ann { display: inline-block; padding: 0.3em 0.9em; border-radius: 0.8em; font-size: 1.05em; background: linear-gradient(180deg, #ffe680, #ffb300); color: #3a0008; border: 2px solid #fff; box-shadow: 0 0 1.2em rgba(255, 211, 77, 0.9); animation: annIn 0.4s cubic-bezier(.2, 1.6, .4, 1); }
 .ann.red { background: linear-gradient(180deg, #ff5a68, #c4001a); color: #fff; }
+.ann.shield { background: linear-gradient(180deg, #fff6c8, #ffd34d); color: #3a2a00; box-shadow: 0 0 1.6em rgba(255, 240, 160, 1); }
 
 #bottom { position: absolute; left: 3%; right: 3%; top: 80.2%; display: flex; flex-wrap: wrap; gap: 0.3em 2%; }
 .panel { flex: 1 1 0; min-width: 0; background: var(--panel); border: 1.5px solid rgba(255, 211, 77, 0.7); border-radius: 0.7em; padding: 0.35em 0.55em; min-height: 6.2em; }

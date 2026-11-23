@@ -5,6 +5,8 @@
 // pour que les tests puissent avancer l'horloge à la main.
 
 const SLOT_NAMES = ['gauche', 'centre', 'droite'];
+// Pouvoirs qui gênent le joueur dont c'est le tour.
+const HARMFUL = ['jinxShake', 'deviate', 'loseTokens', 'steal'];
 
 class Game {
   constructor(config, { actions = {}, random = Math.random, onFx = () => {} } = {}) {
@@ -21,10 +23,11 @@ class Game {
     this.queue = [];
     this.turn = null;
     this.prevTurn = null;
+    this.pendingNext = []; // pouvoirs lancés quand personne ne joue : pour le prochain joueur
     this.status = 'running';
     this.pausedAt = null;
     this.turnCounter = 0;
-    this.stats = { comments: 0, likes: 0, gifts: 0, diamonds: 0, follows: 0, joins: 0, donors: {} };
+    this.stats = { comments: 0, likes: 0, gifts: 0, diamonds: 0, follows: 0, joins: 0, powers: 0, blocked: 0, donors: {} };
     this.version = 0;
   }
 
@@ -48,7 +51,7 @@ class Game {
       p = {
         id, nickname: cleanName(user.nickname || user.uniqueId || id), tokens: 0, points: 0,
         likeRemainder: 0, followed: false, missedTurns: 0, active: true, boosted: false,
-        joinedAt: now, lastSeen: now, gifts: 0,
+        joinedAt: now, lastSeen: now, gifts: 0, shieldUntil: 0, lastHitAt: null, pending: [],
       };
       this.players.set(id, p);
       this.stats.joins++;
@@ -185,6 +188,12 @@ class Game {
       case 'queueSkip':
         this.queueSkip(p, rule.param);
         break;
+      case 'shield':
+        this.giveShield(p, now);
+        break;
+      case 'jinxShake': case 'deviate': case 'loseTokens': case 'steal':
+        this.castPower({ kind: rule.action, param: rule.param, by: p.id }, now);
+        break;
       default:
         break;
     }
@@ -202,6 +211,102 @@ class Game {
     return true;
   }
 
+  // ---------- Bouclier et pouvoirs ----------
+  hasShield(p, now) { return (p.shieldUntil || 0) > (this.status === 'paused' ? this.pausedAt : now); }
+
+  giveShield(p, now) {
+    p.shieldUntil = Math.max(now, p.shieldUntil || 0) + this.config.shieldSeconds * 1000;
+    this.fx({ type: 'shield', player: p.nickname, seconds: Math.round((p.shieldUntil - now) / 1000) });
+    this.touch();
+  }
+
+  // Un pouvoir vise le joueur du tour. Régulation : mode paisible, cible qui vient d'être touchée → en attente.
+  castPower(pw, now) {
+    const by = this.players.get(pw.by);
+    if (this.config.peaceful) {
+      this.fx({ type: 'peaceful', by: by?.nickname, kind: pw.kind });
+      return 'peaceful';
+    }
+    const target = this.turn ? this.players.get(this.turn.playerId) : null;
+    if (!target || target.id === pw.by) {
+      // Personne ne joue (ou le donateur joue lui-même) : le pouvoir attend le prochain joueur.
+      this.pendingNext.push(pw);
+      this.fx({ type: 'pending', by: by?.nickname, kind: pw.kind, target: null });
+      this.touch();
+      return 'pending-next';
+    }
+    const cooldown = this.config.powerCooldownSeconds * 1000;
+    if (target.lastHitAt !== null && target.lastHitAt !== undefined && now - target.lastHitAt < cooldown) {
+      (target.pending ||= []).push(pw);
+      this.fx({ type: 'pending', by: by?.nickname, kind: pw.kind, target: target.nickname });
+      this.touch();
+      return 'pending';
+    }
+    return this.applyPower(pw, target, now);
+  }
+
+  applyPower(pw, target, now) {
+    const by = this.players.get(pw.by);
+    const byName = by?.nickname || '?';
+    const isAiming = this.turn && this.turn.playerId === target.id && this.turn.phase === 'aim';
+    if (pw.kind === 'deviate' && !isAiming) {
+      // Le jeton est déjà parti : la déviation s'applique à son prochain lancer.
+      (target.pending ||= []).push(pw);
+      this.fx({ type: 'pending', by: byName, kind: pw.kind, target: target.nickname });
+      return 'pending';
+    }
+    if (this.hasShield(target, now)) {
+      this.stats.blocked++;
+      this.fx({ type: 'blocked', by: byName, kind: pw.kind, target: target.nickname });
+      this.touch();
+      return 'blocked';
+    }
+    target.lastHitAt = now;
+    this.stats.powers++;
+    let amount = 0;
+    switch (pw.kind) {
+      case 'jinxShake':
+        if (isAiming) this.turn.jinxShake = (this.turn.jinxShake || 0) + 1; // secousse au moment du lancer
+        else this.actions.shake({ by: byName });
+        break;
+      case 'deviate':
+        this.turn.deviate = true;
+        break;
+      case 'loseTokens': {
+        amount = Math.max(0, Math.min(Number(pw.param) || 0, target.tokens - 1)); // toujours au moins 1 jeton
+        target.tokens -= amount;
+        break;
+      }
+      case 'steal': {
+        amount = Math.max(0, Math.min(Number(pw.param) || 0, target.tokens - 1));
+        target.tokens -= amount;
+        if (by && amount > 0) {
+          const gained = Math.min(amount, this.config.maxTokens - by.tokens);
+          by.tokens += Math.max(0, gained);
+          this.enqueueIfEligible(by);
+        }
+        break;
+      }
+      default: break;
+    }
+    this.fx({ type: 'power', kind: pw.kind, by: byName, target: target.nickname, amount });
+    this.touch();
+    return 'applied';
+  }
+
+  // Au début d'un tour : les pouvoirs en attente pour ce joueur s'appliquent (sans délai entre pouvoirs).
+  applyPendingAtTurnStart(p, now) {
+    const list = (p.pending || []).splice(0);
+    const keep = [];
+    for (const pw of this.pendingNext.splice(0)) (pw.by === p.id ? keep : list).push(pw);
+    this.pendingNext = keep;
+    for (const pw of list) {
+      if (!this.players.has(pw.by) && pw.kind === 'steal') continue;
+      if (this.config.peaceful) continue;
+      this.applyPower(pw, p, now);
+    }
+  }
+
   deactivate(p) {
     p.active = false;
     this.queue = this.queue.filter((id) => id !== p.id);
@@ -217,12 +322,23 @@ class Game {
     if (p.tokens <= 0) return false;
     p.tokens--;
     if (!auto) p.missedTurns = 0;
+    let deviatedFrom = null;
+    if (this.turn.deviate) {
+      // Jeton dévié : il part dans une autre fente, au hasard.
+      const others = [0, 1, 2].filter((x) => x !== slot);
+      deviatedFrom = slot;
+      slot = others[Math.floor(this.random() * others.length) % others.length];
+      this.turn.deviate = false;
+    }
     this.turn.phase = 'launched';
     this.turn.slot = slot;
     this.turn.auto = auto;
     this.turn.endsAt = now + this.config.afterLaunchMs;
     this.actions.launch(slot, { playerId: p.id, nickname: p.nickname });
-    this.fx({ type: 'launch', player: p.nickname, slot, slotName: SLOT_NAMES[slot], auto });
+    const jinx = this.turn.jinxShake || 0;
+    for (let i = 0; i < jinx; i++) this.actions.shake({ by: null, index: i });
+    this.turn.jinxShake = 0;
+    this.fx({ type: 'launch', player: p.nickname, slot, slotName: SLOT_NAMES[slot], auto, deviatedFrom, jinx });
     this.touch();
     return true;
   }
@@ -265,6 +381,7 @@ class Game {
       this.turnCounter++;
       this.turn = { n: this.turnCounter, playerId: id, phase: 'aim', startedAt: now, deadline: now + this.config.turnSeconds * 1000 };
       this.fx({ type: 'turn', player: p.nickname });
+      this.applyPendingAtTurnStart(p, now);
       this.touch();
       return true;
     }
@@ -304,6 +421,10 @@ class Game {
       if (this.turn.endsAt) this.turn.endsAt += d;
     }
     if (this.prevTurn) this.prevTurn.endedAt += d;
+    for (const p of this.players.values()) {
+      if (p.shieldUntil > this.pausedAt) p.shieldUntil += d; // le bouclier ne s'use pas pendant la pause
+      if (p.lastHitAt) p.lastHitAt += d;
+    }
     this.status = 'running';
     this.pausedAt = null;
     this.touch();
@@ -327,8 +448,11 @@ class Game {
         nickname: tp.nickname, tokens: tp.tokens, phase: t.phase, slot: t.slot ?? null,
         remainingMs: t.phase === 'aim' ? Math.max(0, t.deadline - (this.status === 'paused' ? this.pausedAt : now)) : 0,
         totalMs: this.config.turnSeconds * 1000, n: t.n,
+        shieldMs: Math.max(0, (tp.shieldUntil || 0) - (this.status === 'paused' ? this.pausedAt : now)),
+        jinx: !!t.jinxShake, deviate: !!t.deviate,
       } : null,
-      queue: this.queue.slice(0, 6).map((id) => { const p = this.players.get(id); return { nickname: p.nickname, tokens: p.tokens, boosted: p.boosted }; }),
+      queue: this.queue.slice(0, 6).map((id) => { const p = this.players.get(id); return { nickname: p.nickname, tokens: p.tokens, boosted: p.boosted, shield: this.hasShield(p, now) }; }),
+      peaceful: !!this.config.peaceful,
       queueLength: this.queue.length,
       leaderboard: this.leaderboard(5),
       commands: [this.config.commandsLeft, this.config.commandsCenter, this.config.commandsRight].map((s) => String(s).split(',')[0].trim()),
@@ -353,12 +477,14 @@ class Game {
     return {
       players: [...this.players.values()], queue: this.queue, turn: this.turn, prevTurn: this.prevTurn,
       status: this.status, pausedAt: this.pausedAt, turnCounter: this.turnCounter, stats: this.stats,
+      pendingNext: this.pendingNext,
     };
   }
 
   restore(data, now) {
     if (!data) return;
-    this.players = new Map((data.players || []).map((p) => [p.id, p]));
+    this.players = new Map((data.players || []).map((p) => [p.id, { shieldUntil: 0, lastHitAt: null, pending: [], ...p }]));
+    this.pendingNext = Array.isArray(data.pendingNext) ? data.pendingNext : [];
     this.queue = (data.queue || []).filter((id) => this.players.has(id));
     this.turnCounter = data.turnCounter || 0;
     this.stats = { ...this.stats, ...(data.stats || {}) };
@@ -377,4 +503,4 @@ function cleanName(s) {
   return String(s).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 24) || 'viewer';
 }
 
-module.exports = { Game, SLOT_NAMES };
+module.exports = { Game, SLOT_NAMES, HARMFUL };

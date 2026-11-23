@@ -165,6 +165,7 @@
   const drops = [];  // objets qui tombent dans le bac ou par les côtés
   const parts = [];  // étincelles
   let shakeUntil = 0;
+  let flash = null; // { color, t0, dur } : éclair coloré sur le plateau pour les pouvoirs
   const lastPos = new Map();
 
   function onFx(e) {
@@ -184,7 +185,33 @@
         drops.push({ key: e.item, x: e.x, a: lp ? lp.a : 0, t0: performance.now(), side: true, y: lp ? lp.y : D * 0.85 });
         break;
       }
-      case 'launch': sfx('launch'); break;
+      case 'launch': {
+        sfx('launch');
+        const n = state?.commands || ['1', '2', '3'];
+        if (e.deviatedFrom !== null && e.deviatedFrom !== undefined) {
+          announce(`↪️ Jeton dévié : fente ${n[e.deviatedFrom]} → ${n[e.slot]}&nbsp;!`, 'red');
+          swerve = { from: e.deviatedFrom, to: e.slot, t0: performance.now() };
+        }
+        if (e.jinx) { shakeUntil = performance.now() + 900; sfx('shake'); flashOn('rgba(255,60,40,0.35)', 700); }
+        break;
+      }
+      case 'power': {
+        const t = '@' + e.target, b = '@' + e.by;
+        const msg = {
+          jinxShake: `🌪️ ${b} piège le lancer de ${t}&nbsp;!`,
+          deviate: `↪️ ${b} va dévier le jeton de ${t}&nbsp;!`,
+          loseTokens: e.amount ? `💥 ${t} perd ${e.amount} jeton${e.amount > 1 ? 's' : ''} (${b})` : `💥 ${b} attaque ${t}, qui garde son dernier jeton`,
+          steal: e.amount ? `🦹 ${b} vole ${e.amount} jeton${e.amount > 1 ? 's' : ''} à ${t}&nbsp;!` : `🦹 ${b} tente de voler ${t}, qui garde son dernier jeton`,
+        }[e.kind];
+        if (msg) announce(msg, 'red');
+        flashOn(e.kind === 'steal' ? 'rgba(150,40,255,0.35)' : e.kind === 'deviate' ? 'rgba(40,160,255,0.3)' : 'rgba(255,40,60,0.35)', 600);
+        sfx('power');
+        break;
+      }
+      case 'shield': announce(`🛡️ @${e.player} est protégé·e ${e.seconds}&nbsp;s&nbsp;!`, 'shield'); sfx('shield'); break;
+      case 'blocked': announce(`🛡️ Bloqué ! @${e.target} est protégé·e`, 'shield'); flashOn('rgba(255,211,77,0.35)', 600); sfx('shield'); break;
+      case 'pending': tick(`⏳ Pouvoir de @${e.by} en attente pour ${e.target ? '@' + e.target : 'le prochain joueur'}`); break;
+      case 'peaceful': tick(`🕊️ Mode paisible : pouvoir de @${e.by} désactivé`); break;
       case 'shake': shakeUntil = performance.now() + 600; tick(`🌹 Secousse offerte par @${e.by}`); sfx('shake'); break;
       case 'spawn': announce(`🎁 @${e.by} fait apparaître : ${items[e.item]?.label || e.item}&nbsp;!`); sfx('big'); break;
       case 'coinRain': announce(`🪙 Pluie de jetons offerte par @${e.by}&nbsp;!`); break;
@@ -212,11 +239,11 @@
     setTimeout(() => el.classList.add('out'), 3000);
     setTimeout(() => el.remove(), 3600);
   }
-  function announce(html) {
+  function announce(html, cls = '') {
     const box = $('announce');
     const parts = html.split('&nbsp;');
     box.innerHTML = '';
-    const el = document.createElement('div'); el.className = 'ann';
+    const el = document.createElement('div'); el.className = 'ann ' + cls;
     el.textContent = parts.join(' ');
     box.appendChild(el);
     setTimeout(() => { if (el.parentNode) el.remove(); }, 3200);
@@ -239,6 +266,8 @@
     else if (kind === 'launch') tone(600, 0.15, 'triangle', 0.05, 200);
     else if (kind === 'shake') tone(90, 0.5, 'sawtooth', 0.06, 50);
     else if (kind === 'turn') tone(660, 0.1, 'sine', 0.05, 990);
+    else if (kind === 'power') { tone(220, 0.25, 'sawtooth', 0.06, 110); setTimeout(() => tone(160, 0.3, 'square', 0.05, 80), 120); }
+    else if (kind === 'shield') { tone(520, 0.3, 'sine', 0.06, 1040); setTimeout(() => tone(780, 0.3, 'sine', 0.05), 120); }
   }
 
   // ---------- Interface (HTML) ----------
@@ -248,7 +277,8 @@
     $('turn').classList.toggle('hidden', !t);
     if (t) {
       $('turn-name').textContent = '@' + t.nickname;
-      $('turn-tokens').textContent = `🪙 ${t.tokens}`;
+      const marks = (t.shieldMs > 0 ? `🛡️${Math.ceil(t.shieldMs / 1000)}s ` : '') + (t.jinx ? '🌪️ ' : '') + (t.deviate ? '↪️ ' : '');
+      $('turn-tokens').textContent = `${marks}🪙 ${t.tokens}`;
       $('turn-hint').textContent = t.phase === 'aim' ? `Écris ${state.commands[0]}, ${state.commands[1]} ou ${state.commands[2]}` : 'Jeton lancé !';
     }
     const idle = !t && state.queueLength === 0 && state.status === 'running';
@@ -260,10 +290,10 @@
       ? state.leaderboard.map((p, i) => `<li><span class="n">${i + 1}. ${esc(p.nickname)}</span><span class="v">${fmt(p.points)}</span></li>`).join('')
       : '<li><span class="n">Pas encore de points</span></li>';
     $('queue-list').innerHTML = state.queue.length
-      ? state.queue.map((p, i) => `<li class="${p.boosted ? 'boost' : ''}"><span class="n">${i + 1}. ${esc(p.nickname)}</span><span class="v">🪙${p.tokens}</span></li>`).join('')
+      ? state.queue.map((p, i) => `<li class="${p.boosted ? 'boost' : ''}"><span class="n">${i + 1}. ${p.shield ? '🛡️' : ''}${esc(p.nickname)}</span><span class="v">🪙${p.tokens}</span></li>`).join('')
       : '<li><span class="n">Personne</span></li>';
     $('queue-n').textContent = state.queueLength > state.queue.length ? `(${state.queueLength})` : '';
-    $('likes-hint').textContent = `❤️ ${state.likesPerRefill} likes = ${state.tokensPerLikeRefill} jetons · Abonne-toi = jetons bonus`;
+    $('likes-hint').textContent = `❤️ ${state.likesPerRefill} likes = ${state.tokensPerLikeRefill} jetons · Abonne-toi = jetons bonus${state.peaceful ? ' · 🕊️ Mode paisible' : ''}`;
     turnClock = { at: performance.now(), remaining: t ? t.remainingMs : 0, total: t ? t.totalMs : 1, phase: t?.phase, paused: state.status === 'paused' };
   }
   let turnClock = null;
@@ -447,8 +477,33 @@
       }
       ctx.restore();
     }
+    // Éclair coloré des pouvoirs, flèche du jeton dévié
+    if (flash) {
+      const t = (now - flash.t0) / flash.dur;
+      if (t >= 1) flash = null;
+      else {
+        ctx.save(); ctx.globalAlpha = 1 - t; ctx.fillStyle = flash.color;
+        ctx.beginPath(); ctx.moveTo(CX - BACK_HALF, BACK_Y - 240); ctx.lineTo(CX + BACK_HALF, BACK_Y - 240);
+        ctx.lineTo(CX + FRONT_HALF, FRONT_Y); ctx.lineTo(CX - FRONT_HALF, FRONT_Y); ctx.closePath(); ctx.fill(); ctx.restore();
+      }
+    }
+    if (swerve) {
+      const t = (now - swerve.t0) / 1200;
+      if (t >= 1) swerve = null;
+      else {
+        const [x1, y1] = SLOT_SCREEN[swerve.from], [x2, y2] = SLOT_SCREEN[swerve.to];
+        ctx.save(); ctx.globalAlpha = 1 - t; ctx.strokeStyle = '#4dc8ff'; ctx.lineWidth = 10; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x1, y1 + 40); ctx.quadraticCurveTo((x1 + x2) / 2, y1 - 60, x2, y2 + 40); ctx.stroke();
+        const a = Math.atan2(40, x2 - (x1 + x2) / 2);
+        ctx.fillStyle = '#4dc8ff'; ctx.beginPath(); ctx.moveTo(x2, y2 + 52);
+        ctx.lineTo(x2 - 26 * Math.cos(a - 0.5), y2 + 52 - 26 * Math.sin(a - 0.5)); ctx.lineTo(x2 - 26 * Math.cos(a + 0.5), y2 + 52 - 26 * Math.sin(a + 0.5)); ctx.fill();
+        ctx.restore();
+      }
+    }
     updateTurnBar();
   }
+  function flashOn(color, dur) { flash = { color, t0: performance.now(), dur }; }
+  let swerve = null;
   requestAnimationFrame(frame);
 
   // ---------- Plein écran, écran allumé, son ----------

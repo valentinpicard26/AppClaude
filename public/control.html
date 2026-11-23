@@ -50,6 +50,7 @@
             <button id="g-resetboard" class="danger">Classement à zéro</button>
             <button id="g-reset" class="danger">Redémarrer de zéro</button>
           </div>
+          <label class="switch big-switch"><input type="checkbox" id="peaceful"> 🕊️ Mode paisible (coupe les pouvoirs qui gênent)</label>
           <p class="muted small">« Redémarrer de zéro » efface joueurs, jetons et points du live, et remet le plateau à neuf.</p>
         </div>
         <div class="card">
@@ -91,6 +92,10 @@
           <h2>Objets et points</h2>
           <p class="muted small">Fréquence : poids relatif d'apparition des tickets (0 = jamais).</p>
           <table class="tbl"><thead><tr><th>Objet</th><th>Points</th><th>Fréquence</th></tr></thead><tbody id="items"></tbody></table>
+        </div>
+        <div class="card">
+          <h2>Pouvoirs</h2>
+          <div class="fields" id="f-powers"></div>
         </div>
         <div class="card">
           <h2>Divers</h2>
@@ -139,6 +144,15 @@
             <button data-ev="rose">🌹 Rose</button>
             <button data-ev="leave">🚪 Quitte le live</button>
           </div>
+          <h3>Pouvoirs (envoie le cadeau réglé pour cet effet)</h3>
+          <div class="grid2" id="power-buttons">
+            <button data-power="jinxShake">🌪️ Secousse au lancer</button>
+            <button data-power="deviate">↪️ Jeton dévié</button>
+            <button data-power="loseTokens">💥 Perte de jetons</button>
+            <button data-power="steal">🦹 Vol de jetons</button>
+            <button data-power="shield">🛡️ Bouclier</button>
+            <button data-power="queueSkip">⚡ Passer devant</button>
+          </div>
           <h3>Cadeau</h3>
           <div class="row">
             <input id="gift-name" placeholder="Nom (optionnel)" style="flex:2">
@@ -146,7 +160,7 @@
             <input id="gift-count" type="number" value="1" min="1" style="flex:1" title="Nombre">
           </div>
           <div class="row"><button id="send-gift" class="primary">🎁 Envoyer le cadeau</button></div>
-          <p class="muted small">Valeurs par défaut : 1 = secousse, 10 = passe devant, 30 = pluie de jetons, 99 = diamant, 199 = rubis, 299 = émeraude, 499 = améthyste, 999 = topaze, 2999 = cristal, 4999 = coffre.</p>
+          <p class="muted small">Valeurs par défaut (proposées) : 1 = secousse, 10 = passe devant, 30 = pluie de jetons, 99 = diamant, 199 = secousse au lancer, 299 = jeton dévié, 399 = perte de 2 jetons, 499 = bouclier, 699 = vol de 3 jetons, 999 = rubis, 1499 = émeraude, 1999 = améthyste, 2999 = topaze, 3999 = cristal, 4999 = coffre.</p>
           <p id="sim-result" class="muted small"></p>
         </div>
       </section>

@@ -74,6 +74,11 @@
       ['shakeIntensity', 'Intensité des secousses (1 à 10)'], ['shakeDurationMs', 'Durée des secousses (ms)'],
       ['coinRainDelayMs', 'Intervalle pluie de jetons (ms)'],
     ],
+    'f-powers': [
+      ['peaceful', 'Mode paisible', 'Coupe les pouvoirs qui gênent'],
+      ['shieldSeconds', 'Durée du bouclier (s)'],
+      ['powerCooldownSeconds', 'Délai entre deux pouvoirs (s)', 'Un joueur touché trop tôt subit l\'effet à son tour suivant'],
+    ],
     'f-misc': [['sounds', 'Sons'], ['blockedNames', 'Pseudos bloqués', 'Séparés par des virgules']],
   };
 
@@ -108,10 +113,14 @@
   $('reset-settings').onclick = async () => { if (confirm('Revenir à tous les réglages par défaut ?')) { await act('config:reset', null, 'Réglages par défaut'); settingsLoaded = false; rulesLoaded = false; } };
 
   // ---------- Cadeaux ----------
-  const ACTIONS = { shake: 'Secousse', coinRain: 'Pluie de jetons', spawn: 'Objet bonus', queueSkip: 'Passer devant', none: 'Rien' };
+  const ACTIONS = {
+    shake: 'Secousse', coinRain: 'Pluie de jetons', spawn: 'Objet bonus', queueSkip: 'Passer devant',
+    shield: '🛡️ Bouclier (pour le donateur)', jinxShake: '🌪️ Secousse au lancer', deviate: '↪️ Jeton dévié',
+    loseTokens: '💥 Perte de jetons', steal: '🦹 Vol de jetons', none: 'Rien',
+  };
   function ruleHtml(r, items) {
     const spawnOpts = items.filter((i) => i.kind !== 'coin').map((i) => `<option value="${i.key}" ${r.param === i.key ? 'selected' : ''}>${esc(i.label)}</option>`).join('');
-    const paramLabel = { coinRain: 'Nombre de jetons', queueSkip: 'Places (0 = tout devant)', shake: 'Paramètre (inutilisé)', none: '—', spawn: 'Objet' }[r.action];
+    const paramLabel = { coinRain: 'Nombre de jetons', queueSkip: 'Places (0 = tout devant)', spawn: 'Objet', loseTokens: 'Jetons perdus', steal: 'Jetons volés' }[r.action] || 'Paramètre (inutilisé)';
     return `<div class="rule">
       <label class="full">Nom du cadeau (vide = règle par valeur)<input data-r="name" value="${esc(r.name)}"></label>
       <label>Diamants min<input type="number" data-r="minDiamonds" value="${r.minDiamonds}"></label>
@@ -129,7 +138,7 @@
         inp.onchange = () => {
           const k = inp.dataset.r;
           rulesDraft[i][k] = inp.type === 'number' ? Number(inp.value) : inp.value;
-          if (k === 'action') { rulesDraft[i].param = inp.value === 'spawn' ? 'diamant' : inp.value === 'coinRain' ? 5 : 1; renderRules(); }
+          if (k === 'action') { rulesDraft[i].param = { spawn: 'diamant', coinRain: 5, loseTokens: 2, steal: 3, queueSkip: 3 }[inp.value] ?? 1; renderRules(); }
         };
       });
       el.querySelector('[data-del]').onclick = () => { rulesDraft.splice(i, 1); renderRules(); };
@@ -160,6 +169,18 @@
       else if (e === 'leave') simEvent({ type: 'leave' });
     };
   });
+  // Boutons de pouvoirs : envoient le cadeau correspondant à la première règle qui déclenche cet effet.
+  document.querySelectorAll('[data-power]').forEach((b) => {
+    b.onclick = () => {
+      const r = st?.config.giftRules.find((x) => x.action === b.dataset.power);
+      if (!r) return toast('Aucun cadeau n\'est réglé pour cet effet (onglet Cadeaux)');
+      simEvent({ type: 'gift', giftName: r.name || 'Cadeau test', diamondCount: r.name ? 1 : r.minDiamonds, repeatCount: 1 });
+    };
+  });
+  $('peaceful').onchange = async (e) => {
+    const r = await act('config:update', { peaceful: e.target.checked }, e.target.checked ? '🕊️ Mode paisible activé' : 'Pouvoirs réactivés');
+    if (r.ok) settingsLoaded = false;
+  };
   $('send-gift').onclick = () => simEvent({ type: 'gift', giftName: $('gift-name').value, diamondCount: Number($('gift-diamonds').value), repeatCount: Number($('gift-count').value) || 1 });
 
   // ---------- Mise à jour de l'état ----------
@@ -182,6 +203,7 @@
     $('players').innerHTML = s.players.slice(0, 50).map((p) => `<tr class="${p.active ? '' : 'off'}"><td>${esc(p.nickname)}</td><td>${p.tokens}</td><td>${p.points.toLocaleString('fr-FR')}</td><td>${p.inQueue ? '⏳' : ''}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Aucun joueur</td></tr>';
     $('log').textContent = s.log.slice().reverse().map((l) => new Date(l.t).toLocaleTimeString('fr-FR') + ' ' + l.line).join('\n');
     $('sim-auto').checked = s.simAuto;
+    $('peaceful').checked = !!s.config.peaceful;
     const sel = $('sim-who'); const cur = sel.value;
     const opts = s.players.map((p) => `<option value="${esc(p.id)}">${esc(p.nickname)} (🪙${p.tokens})</option>`).join('');
     if (sel.dataset.h !== opts) { sel.innerHTML = opts; sel.dataset.h = opts; if (cur) sel.value = cur; }

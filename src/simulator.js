@@ -52,6 +52,11 @@ class Simulator {
     else if (r < 0.37) this.emit({ type: 'gift', userId: any.id, nickname: any.nickname, giftName: 'Rose', diamondCount: 1, repeatCount: 1 });
     else if (r < 0.375) this.emit({ type: 'gift', userId: any.id, nickname: any.nickname, giftName: 'Cadeau test', diamondCount: 99, repeatCount: 1 });
     else if (r < 0.38) this.emit({ type: 'follow', userId: any.id, nickname: any.nickname });
+    else if (r < 0.395) {
+      // Pouvoirs et bouclier (valeurs par défaut : 199 secousse au lancer, 299 dévié, 399 perte, 499 bouclier, 699 vol)
+      const d = [199, 299, 399, 499, 699][Math.floor(this.random() * 5)];
+      this.emit({ type: 'gift', userId: any.id, nickname: any.nickname, giftName: 'Cadeau test', diamondCount: d, repeatCount: 1 });
+    }
   }
 }
 

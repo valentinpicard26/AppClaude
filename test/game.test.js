@@ -205,8 +205,8 @@ test('un cadeau désigné fait passer devant dans la file', () => {
 test('pluie de jetons et objets bonus selon la valeur du cadeau', () => {
   const { g, calls } = setup();
   g.handleEvent({ type: 'gift', ...B, diamondCount: 30 }, 0);
-  g.handleEvent({ type: 'gift', ...B, diamondCount: 199 }, 0);
-  g.handleEvent({ type: 'gift', ...B, diamondCount: 1000, repeatCount: 2 }, 0);
+  g.handleEvent({ type: 'gift', ...B, diamondCount: 999 }, 0);
+  g.handleEvent({ type: 'gift', ...B, diamondCount: 3000, repeatCount: 2 }, 0);
   assert.deepEqual(calls.coinRain, [5]);
   assert.deepEqual(calls.spawn.map((s) => s.key), ['rubis', 'topaze', 'topaze']);
 });

@@ -51,10 +51,11 @@ Limites de l'offre gratuite (à revérifier sur render.com/docs/free) :
 - Application de contrôle : Live, Réglages, Cadeaux, Simulateur, Aperçu, statistiques, journal.
 - Sauvegarde continue (toutes les 5 s) et reprise en pause après un plantage.
 - Connecteur TikTok (TikTok-Live-Connector 2.5) branché mais **non testé sur un vrai live**.
+- Pouvoirs qui gênent le joueur du tour : secousse au lancer, jeton dévié, perte de jetons, vol de jetons (au profit du donateur), et bouclier pour se protéger. Régulation : la victime garde toujours 1 jeton, une cible touchée trop récemment subit l'effet à son tour suivant, interrupteur « mode paisible » dans l'onglet Live.
 
 ## Pas encore fait
 
-- Pouvoirs qui gênent (secousse ciblée, jeton dévié, perte/vol de jetons) et bouclier : en attente des décisions « À trancher » du cahier des charges.
+- Choix définitif des cadeaux pour chaque effet (« À trancher ») : les valeurs actuelles sont proposées par défaut.
 - Classement hebdomadaire, modération automatique des pseudos (seule la liste de blocage manuelle existe), onglet Mise en page.
 - Empilement réel des jetons : la physique est en 2D vue de dessus, les jetons glissent et se poussent mais ne montent pas les uns sur les autres.
 

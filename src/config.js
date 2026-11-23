@@ -32,7 +32,9 @@ function defaultItems() {
 // Règles de cadeaux (PROPOSÉ, "À trancher" dans le cahier des charges).
 // Une règle avec un nom de cadeau passe avant les règles par valeur (en diamants TikTok).
 // Actions : shake (secousse), coinRain (pluie de jetons, param = nombre),
-// spawn (objet bonus, param = clé d'objet), queueSkip (passer devant, param = nombre de places, 0 = tout devant), none.
+// spawn (objet bonus, param = clé d'objet), queueSkip (passer devant, param = nombre de places, 0 = tout devant),
+// shield (bouclier pour le donateur), et pouvoirs qui gênent le joueur du tour : jinxShake (secousse au lancer),
+// deviate (jeton dévié), loseTokens (perte, param = nombre), steal (vol au profit du donateur, param = nombre), none.
 function defaultGiftRules() {
   return [
     { name: 'Rose', minDiamonds: 0, maxDiamonds: 0, action: 'shake', param: 1 },
@@ -40,11 +42,16 @@ function defaultGiftRules() {
     { name: '', minDiamonds: 10, maxDiamonds: 29, action: 'queueSkip', param: 3 },
     { name: '', minDiamonds: 30, maxDiamonds: 98, action: 'coinRain', param: 5 },
     { name: '', minDiamonds: 99, maxDiamonds: 198, action: 'spawn', param: 'diamant' },
-    { name: '', minDiamonds: 199, maxDiamonds: 298, action: 'spawn', param: 'rubis' },
-    { name: '', minDiamonds: 299, maxDiamonds: 498, action: 'spawn', param: 'emeraude' },
-    { name: '', minDiamonds: 499, maxDiamonds: 998, action: 'spawn', param: 'amethyste' },
-    { name: '', minDiamonds: 999, maxDiamonds: 2998, action: 'spawn', param: 'topaze' },
-    { name: '', minDiamonds: 2999, maxDiamonds: 4998, action: 'spawn', param: 'cristal' },
+    { name: '', minDiamonds: 199, maxDiamonds: 298, action: 'jinxShake', param: 1 },
+    { name: '', minDiamonds: 299, maxDiamonds: 398, action: 'deviate', param: 1 },
+    { name: '', minDiamonds: 399, maxDiamonds: 498, action: 'loseTokens', param: 2 },
+    { name: '', minDiamonds: 499, maxDiamonds: 698, action: 'shield', param: 0 },
+    { name: '', minDiamonds: 699, maxDiamonds: 998, action: 'steal', param: 3 },
+    { name: '', minDiamonds: 999, maxDiamonds: 1498, action: 'spawn', param: 'rubis' },
+    { name: '', minDiamonds: 1499, maxDiamonds: 1998, action: 'spawn', param: 'emeraude' },
+    { name: '', minDiamonds: 1999, maxDiamonds: 2998, action: 'spawn', param: 'amethyste' },
+    { name: '', minDiamonds: 2999, maxDiamonds: 3998, action: 'spawn', param: 'topaze' },
+    { name: '', minDiamonds: 3999, maxDiamonds: 4998, action: 'spawn', param: 'cristal' },
     { name: '', minDiamonds: 4999, maxDiamonds: 999999, action: 'spawn', param: 'coffre' },
   ];
 }
@@ -77,6 +84,10 @@ function defaultConfig() {
     shakeIntensity: 5,          // 1 à 10
     shakeDurationMs: 600,
     coinRainDelayMs: 180,
+    // Pouvoirs
+    peaceful: false,            // mode paisible : coupe les pouvoirs qui gênent
+    shieldSeconds: 60,          // PROPOSÉ : durée du bouclier
+    powerCooldownSeconds: 20,   // PROPOSÉ : délai entre deux pouvoirs sur un même joueur
     // Divers
     liveUsername: '',
     sounds: true,
@@ -92,6 +103,7 @@ const NUMERIC_LIMITS = {
   followTokens: [0, 100], coinsOnPlate: [0, 200], ticketsOnPlate: [0, 30], maxObjects: [20, 300],
   pusherStroke: [20, 150], pusherPeriodSeconds: [1, 10], sideGapRatio: [0, 0.8], shakeIntensity: [1, 10],
   shakeDurationMs: [100, 3000], coinRainDelayMs: [50, 2000],
+  shieldSeconds: [5, 600], powerCooldownSeconds: [0, 300],
 };
 
 // Fusionne une mise à jour partielle en validant les types et les bornes.
@@ -119,7 +131,7 @@ function applyConfigPatch(cfg, patch) {
         return n;
       });
     } else if (k === 'giftRules' && Array.isArray(v)) {
-      const actions = ['shake', 'coinRain', 'spawn', 'queueSkip', 'none'];
+      const actions = ['shake', 'coinRain', 'spawn', 'queueSkip', 'shield', 'jinxShake', 'deviate', 'loseTokens', 'steal', 'none'];
       out.giftRules = v.slice(0, 50).filter((r) => r && actions.includes(r.action)).map((r) => ({
         name: String(r.name || '').slice(0, 60),
         minDiamonds: Math.max(0, Number(r.minDiamonds) || 0),
