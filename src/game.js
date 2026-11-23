@@ -459,10 +459,26 @@ class Game {
       queue: this.queue.slice(0, 6).map((id) => { const p = this.players.get(id); return { nickname: p.nickname, tokens: p.tokens, boosted: p.boosted, shield: this.hasShield(p, now) }; }),
       peaceful: !!this.config.peaceful,
       queueLength: this.queue.length,
+      // Participants et leurs jetons : le joueur du tour, la file, puis ceux qui n'ont plus de jeton.
+      roster: this.roster(now),
       leaderboard: this.leaderboard(5),
       commands: [this.config.commandsLeft, this.config.commandsCenter, this.config.commandsRight].map((s) => String(s).split(',')[0].trim()),
       likesPerRefill: this.config.likesPerRefill, tokensPerLikeRefill: this.config.tokensPerLikeRefill, startTokens: this.config.startTokens, followTokens: this.config.followTokens,
     };
+  }
+
+  roster(now, max = 7) {
+    const row = (p, extra) => ({ nickname: p.nickname, tokens: p.tokens, boosted: p.boosted, shield: this.hasShield(p, now), ...extra });
+    const out = [];
+    if (this.turn) { const p = this.players.get(this.turn.playerId); if (p) out.push(row(p, { current: true })); }
+    for (const id of this.queue) { if (out.length >= max) break; out.push(row(this.players.get(id), {})); }
+    if (out.length < max) {
+      const empty = [...this.players.values()]
+        .filter((p) => p.active && p.tokens <= 0 && (!this.turn || this.turn.playerId !== p.id))
+        .sort((a, b) => b.lastSeen - a.lastSeen);
+      for (const p of empty) { if (out.length >= max) break; out.push(row(p, { empty: true })); }
+    }
+    return out;
   }
 
   controlStats() {

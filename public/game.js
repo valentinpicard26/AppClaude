@@ -236,7 +236,14 @@
       case 'spawn': announce(`🎁 @${e.by} fait apparaître : ${items[e.item]?.label || e.item}&nbsp;!`); sfx('big'); break;
       case 'coinRain': announce(`🪙 Pluie de jetons offerte par @${e.by}&nbsp;!`); break;
       case 'queueSkip': tick(`⚡ @${e.player} passe en position ${e.position}`); break;
-      case 'tokens': if (e.reason !== 'arrivée') tick(`+${e.gained} jetons pour @${e.player} (${e.reason})${e.capped ? ' · max atteint' : ''}`); break;
+      case 'tokens':
+        // Gain de jetons bien visible : likes et abonnement
+        if (e.reason !== 'arrivée') {
+          const why = e.reason === 'likes' ? '❤️ likes' : e.reason === 'abonnement' ? '➕ abonnement' : e.reason;
+          announce(e.gained > 0 ? `🪙 +${e.gained} jetons pour @${e.player} (${why})` : `🪙 @${e.player} a déjà le maximum de jetons`, 'tokens');
+          sfx('turn');
+        }
+        break;
       case 'join': tick(`👋 @${e.player} rejoint la partie`); break;
       case 'turn': sfx('turn'); break;
       default: break;
@@ -327,10 +334,16 @@
     $('board-list').innerHTML = state.leaderboard.length
       ? state.leaderboard.map((p, i) => `<li><span class="n">${i + 1}. ${esc(p.nickname)}</span><span class="v">${fmt(p.points)}</span></li>`).join('')
       : '<li><span class="n">Pas encore de points</span></li>';
-    $('queue-list').innerHTML = state.queue.length
-      ? state.queue.map((p, i) => `<li class="${p.boosted ? 'boost' : ''}"><span class="n">${i + 1}. ${p.shield ? '🛡️' : ''}${esc(p.nickname)}</span><span class="v">🪙${p.tokens}</span></li>`).join('')
+    const roster = state.roster || [];
+    let pos = 0;
+    $('queue-list').innerHTML = roster.length
+      ? roster.map((p) => {
+        const mark = p.current ? '▶ ' : p.empty ? '' : `${++pos}. `;
+        const cls = [p.current ? 'cur' : '', p.boosted ? 'boost' : '', p.empty ? 'empty' : ''].join(' ');
+        return `<li class="${cls}"><span class="n">${mark}${p.shield ? '🛡️' : ''}${esc(p.nickname)}</span><span class="v">🪙 ${p.tokens}</span></li>`;
+      }).join('')
       : '<li><span class="n">Personne</span></li>';
-    $('queue-n').textContent = state.queueLength > state.queue.length ? `(${state.queueLength})` : '';
+    $('queue-n').textContent = state.queueLength + (state.turn ? 1 : 0) > roster.length ? `(${state.queueLength + (state.turn ? 1 : 0)})` : '';
 
     turnClock = { at: performance.now(), remaining: t ? t.remainingMs : 0, total: t ? t.totalMs : 1, phase: t?.phase, paused: state.status === 'paused' };
   }

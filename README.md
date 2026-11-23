@@ -24,7 +24,7 @@ Variables d'environnement :
 | Branche | Rôle | Site Render |
 | --- | --- | --- |
 | `claude/app-fonctionnelle-initiale-1v3pxk` | Version stable, qui marche : on n'y touche plus | `tiktok-pieces` |
-| `claude/corrections-sons-images` | Corrections (fluidité, images, sons, musique) à tester | `tiktok-pieces-test` |
+| `claude/corrections-sons-images` | Branche d'essai : chaque nouveauté y est testée avant d'être reportée | `tiktok-pieces-test` |
 
 Quand la version de test est validée, on la reporte sur la branche stable.
 
@@ -63,13 +63,14 @@ Limites de l'offre gratuite (à revérifier sur render.com/docs/free) :
 - Vitesse du jeu et charge du serveur affichées dans l'onglet Live, avec la version déployée.
 - Copie des réglages dans le téléphone (onglet contrôle) et proposition de restauration quand le serveur a redémarré sans ses fichiers (Render gratuit).
 - Sauvegarde continue (toutes les 5 s) et reprise en pause après un plantage.
-- Connecteur TikTok (TikTok-Live-Connector 2.5) branché mais **non testé sur un vrai live**.
+- Connecteur TikTok (TikTok-Live-Connector 2.5) **testé en vrai live** : arrivées, commentaires 1/2/3 et likes fonctionnent avec l'offre gratuite d'Euler Stream. Le chargement de la liste complète des cadeaux demande l'offre payante (Business).
 - Pouvoirs qui gênent le joueur du tour : secousse au lancer, jeton dévié, perte de jetons, vol de jetons (au profit du donateur), et bouclier pour se protéger. Régulation : la victime garde toujours 1 jeton, une cible touchée trop récemment subit l'effet à son tour suivant, interrupteur « mode paisible » dans l'onglet Live.
 
 ## Pas encore fait
 
 - Choix définitif des cadeaux pour chaque effet (« À trancher ») : les valeurs actuelles sont proposées par défaut.
-- Classement hebdomadaire, modération automatique des pseudos (seule la liste de blocage manuelle existe), onglet Mise en page.
+- Classement hebdomadaire et sauvegarde durable des joueurs (l'offre gratuite de Render efface les fichiers à chaque redémarrage), modération automatique des pseudos (seule la liste de blocage manuelle existe), onglet Mise en page.
+- Son : signalé comme absent sur le téléphone du créateur, cause non trouvée.
 - Empilement réel des jetons : la physique est en 2D vue de dessus, les jetons glissent et se poussent mais ne montent pas les uns sur les autres.
 
 ## Arborescence

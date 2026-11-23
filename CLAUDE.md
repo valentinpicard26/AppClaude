@@ -95,7 +95,7 @@ Protections proposées :
 
 Le style cartoon est validé ; le reste est proposé et reste à ajuster avec le créateur. L'écran doit permettre à chaque viewer de voir son action avoir un effet immédiat.
 
-- **Visuels de référence** : le créateur a fourni la machine (façade rouge néon et dorée, couronne, trois fentes, plateau métallique, bac de sortie) et la planche des objets (jeton, tickets, objets bonus, coffre). Le jeu reprend ce style. Le titre de la machine est « TikTok Pièces » : le visuel actuel, qui affiche « Jeu de Télépièces », est à régénérer.
+- **Visuels de référence** : le créateur a fourni la machine (façade rouge néon et dorée, couronne, trois fentes, plateau métallique, bac de sortie) et la planche des objets (jeton, tickets, objets bonus, coffre). Le jeu reprend ce style. Le titre de la machine est « TikTok Pièces » (visuel régénéré et intégré).
 - **Style** : arcade néon rouge et dorée, soigné et un peu cartoon, sans photoréalisme. Ce style est aussi plus léger à faire tourner sur un téléphone.
 - **Machine** : trois fentes (gauche, centre, droite), un poussoir qui avance et recule, des jetons et des objets qui s'empilent, sont poussés et tombent au bord.
 - **Jeton et objets** : le jeton doré, les tickets de couleur, les gemmes et le coffre de la planche fournie.

@@ -37,33 +37,13 @@ class TikTokSource {
     this.conn = conn;
     this.setStatus({ state: 'connecting', username, error: null });
 
-    const user = (d) => {
-      const u = d.user || d;
-      // userId est stable ; uniqueId (@pseudo) peut changer : on identifie par userId.
-      const userId = u.userId ?? u.id ?? u.uniqueId;
-      return { userId: userId !== undefined && userId !== null ? String(userId) : '', uniqueId: u.uniqueId, nickname: u.nickname || u.uniqueId,
-        isFollower: Number(u.followInfo?.followStatus) >= 1 };
-    };
-    const emit = (ev) => { if (ev.userId) this.onEvent(ev); };
-
-    conn.on(WebcastEvent.MEMBER, (d) => emit({ type: 'join', ...user(d) }));
-    conn.on(WebcastEvent.CHAT, (d) => emit({ type: 'chat', ...user(d), comment: d.comment }));
-    conn.on(WebcastEvent.LIKE, (d) => emit({ type: 'like', ...user(d), likeCount: d.likeCount }));
-    conn.on(WebcastEvent.FOLLOW, (d) => emit({ type: 'follow', ...user(d) }));
-    conn.on(WebcastEvent.GIFT, (d) => {
-      const giftType = d.giftDetails?.giftType ?? d.giftType;
-      if (giftType === 1 && !d.repeatEnd) return; // série en cours : on compte seulement à la fin (pas de doublon)
-      const ext = d.extendedGiftInfo || {};
-      emit({
-        type: 'gift', ...user(d),
-        giftId: d.giftId !== undefined ? String(d.giftId) : '',
-        giftImage: d.giftDetails?.giftImage?.giftPictureUrl || ext.image?.url_list?.[0] || '',
-        giftName: d.giftDetails?.giftName || ext.name || d.giftName || '',
-        diamondCount: d.giftDetails?.diamondCount ?? ext.diamond_count ?? d.diamondCount ?? 0,
-        repeatCount: d.repeatCount || 1,
-      });
-    });
-    conn.on(WebcastEvent.ROOM_USER, (d) => this.setStatus({ viewers: d.viewerCount || 0 }));
+    const emit = (ev) => { if (ev && ev.userId) this.onEvent(ev); };
+    conn.on(WebcastEvent.MEMBER, (d) => emit(mapEvent('join', d)));
+    conn.on(WebcastEvent.CHAT, (d) => emit(mapEvent('chat', d)));
+    conn.on(WebcastEvent.LIKE, (d) => emit(mapEvent('like', d)));
+    conn.on(WebcastEvent.FOLLOW, (d) => emit(mapEvent('follow', d)));
+    conn.on(WebcastEvent.GIFT, (d) => emit(mapEvent('gift', d)));
+    conn.on(WebcastEvent.ROOM_USER, (d) => this.setStatus({ viewers: Number(d.viewerCount ?? d.total ?? d.totalUser) || 0 }));
     conn.on(WebcastEvent.STREAM_END, () => this.setStatus({ state: 'ended' }));
     conn.on(ControlEvent.DISCONNECTED, () => { if (this.conn === conn) this.setStatus({ state: 'disconnected' }); });
     conn.on(ControlEvent.ERROR, (err) => this.log('[tiktok] erreur', err?.message || err));
@@ -113,6 +93,47 @@ class TikTokSource {
   }
 }
 
+// Traduit un événement brut de la bibliothèque en événement du jeu.
+// La version 2.x de tiktok-live-connector transmet les messages TikTok « bruts » (format v3) :
+// commentaire dans `content`, likes dans `count`, identifiant dans `user.id`, cadeau dans `gift`.
+// Les anciens noms (comment, likeCount, userId, giftDetails) restent acceptés.
+function mapEvent(type, d) {
+  if (!d) return null;
+  const u = d.user || {};
+  const id = u.userId ?? u.id;
+  const uniqueId = u.uniqueId || u.displayId || '';
+  const base = {
+    type,
+    userId: id !== undefined && id !== null && id !== '' && id !== '0' ? String(id) : String(uniqueId || ''),
+    uniqueId,
+    nickname: u.nickname || uniqueId,
+    isFollower: Number(u.followInfo?.followStatus) >= 1,
+  };
+  switch (type) {
+    case 'chat': return { ...base, comment: d.comment ?? d.content ?? '' };
+    case 'like': return { ...base, likeCount: Number(d.likeCount ?? d.count) || 0 };
+    case 'gift': {
+      const g = d.gift || {};
+      const det = d.giftDetails || {};
+      const ext = d.extendedGiftInfo || {};
+      const giftType = det.giftType ?? g.type ?? d.giftType;
+      // Cadeau en série (combo) : on attend la fin de la série pour compter une seule fois, sans doublon.
+      if (Number(giftType) === 1 && !d.repeatEnd) return null;
+      const img = g.image?.urlList?.[0] || g.icon?.urlList?.[0] || det.giftImage?.giftPictureUrl || ext.image?.url_list?.[0] || '';
+      const giftId = d.giftId ?? g.id;
+      return {
+        ...base,
+        giftId: giftId !== undefined && giftId !== null ? String(giftId) : '',
+        giftImage: img,
+        giftName: g.name || det.giftName || ext.name || d.giftName || '',
+        diamondCount: Number(g.diamondCount ?? det.diamondCount ?? ext.diamond_count ?? d.diamondCount) || 0,
+        repeatCount: Number(d.repeatCount) || 1,
+      };
+    }
+    default: return base;
+  }
+}
+
 // Traduit les erreurs connues du connecteur en explication claire, en gardant le message d'origine.
 function explainError(e) {
   const raw = String(e?.message || e || '').slice(0, 300);
@@ -131,4 +152,4 @@ function explainError(e) {
   return fr ? `${fr} (${raw})` : raw;
 }
 
-module.exports = { TikTokSource, explainError };
+module.exports = { TikTokSource, explainError, mapEvent };
