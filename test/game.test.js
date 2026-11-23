@@ -300,3 +300,12 @@ test('catalogue des cadeaux : fusion par identifiant, tri par valeur, images htt
   assert.equal(c.find((g) => g.id === '1').image, 'https://x/r.png');
   assert.equal(c.find((g) => g.id === '2').image, '');
 });
+
+test('connecteur : erreurs connues expliquées en français, message d\'origine conservé', () => {
+  const { explainError } = require('../src/tiktok');
+  const m = explainError(new Error('[fetchWebcastSignatureFromEulerRoute] Failed to sign a request: This endpoint requires a Business plan.'));
+  assert.match(m, /offre payante/);
+  assert.match(m, /Business plan/);
+  assert.match(explainError(new Error("The requested user isn't online :(")), /pas en direct/);
+  assert.equal(explainError(new Error('autre')), 'autre');
+});

@@ -29,7 +29,9 @@ class TikTokSource {
       throw e;
     }
     const { TikTokLiveConnection, WebcastEvent, ControlEvent } = lib;
-    const options = { enableExtendedGiftInfo: true, processInitialData: false };
+    // enableExtendedGiftInfo reste coupé : il demande la liste des cadeaux à chaque connexion, et Euler Stream
+    // réserve cette fonction à son offre payante « Business ». Le nom et la valeur arrivent avec chaque cadeau.
+    const options = { enableExtendedGiftInfo: false, processInitialData: false };
     if (signApiKey) options.signApiKey = signApiKey;
     const conn = new TikTokLiveConnection(username, options);
     this.conn = conn;
@@ -71,8 +73,9 @@ class TikTokSource {
       this.setStatus({ state: 'connected' });
     } catch (e) {
       this.conn = null;
-      this.setStatus({ state: 'error', error: String(e?.message || e).slice(0, 300) });
-      throw e;
+      const msg = explainError(e);
+      this.setStatus({ state: 'error', error: msg });
+      throw new Error(msg);
     }
   }
 
@@ -87,7 +90,12 @@ class TikTokSource {
       conn = new TikTokLiveConnection(username, signApiKey ? { signApiKey } : {});
       await conn.fetchRoomId();
     }
-    const raw = (conn.availableGifts && conn.availableGifts.length ? conn.availableGifts : await conn.fetchAvailableGifts()) || [];
+    let raw;
+    try {
+      raw = (conn.availableGifts && conn.availableGifts.length ? conn.availableGifts : await conn.fetchAvailableGifts()) || [];
+    } catch (e) {
+      throw new Error(explainError(e));
+    }
     const list = Array.isArray(raw) ? raw : (raw.gifts || []);
     return list.map((g) => ({
       id: g.id ?? g.giftId,
@@ -105,4 +113,22 @@ class TikTokSource {
   }
 }
 
-module.exports = { TikTokSource };
+// Traduit les erreurs connues du connecteur en explication claire, en gardant le message d'origine.
+function explainError(e) {
+  const raw = String(e?.message || e || '').slice(0, 300);
+  let fr = '';
+  if (/Business plan|requires a .*plan|PremiumFeature|paid plan/i.test(raw)) {
+    fr = 'Fonction réservée à l\'offre payante d\'Euler Stream (service de signature).';
+  } else if (/isn't online|UserOffline|offline/i.test(raw)) {
+    fr = 'Le compte n\'est pas en direct : lance d\'abord le live sur TikTok, puis « Lier le live ».';
+  } else if (/captcha|blocked/i.test(raw)) {
+    fr = 'TikTok semble bloquer le serveur.';
+  } else if (/rate ?limit|too many/i.test(raw)) {
+    fr = 'Trop de demandes au service de signature : attends quelques minutes ou vérifie la clé.';
+  } else if (/lack of permission|401|403|Forbidden|Unauthorized/i.test(raw)) {
+    fr = 'Accès refusé par le service de signature : vérifie la clé TIKTOK_SIGN_API_KEY.';
+  }
+  return fr ? `${fr} (${raw})` : raw;
+}
+
+module.exports = { TikTokSource, explainError };
