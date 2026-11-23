@@ -19,6 +19,20 @@ Variables d'environnement :
 | `TIKTOK_SIGN_API_KEY` | Clé du service de signature (Euler Stream) utilisée par TikTok-Live-Connector. Optionnelle, l'offre gratuite est limitée. |
 | `DATA_DIR` | Dossier de sauvegarde (réglages + état de la partie). Par défaut `./data`. |
 
+## Mise en ligne (Render, offre gratuite)
+
+Le fichier `render.yaml` décrit le service. Depuis le navigateur du téléphone :
+
+1. Créer un compte sur render.com avec « Sign in with GitHub ».
+2. **New → Blueprint**, choisir le dépôt `AppClaude`, puis la branche `claude/app-fonctionnelle-initiale-1v3pxk`.
+3. Render demande `ADMIN_PASSWORD` : choisir un mot de passe (c'est celui de `/control`).
+4. Valider (« Apply »). Après le premier déploiement, l'adresse est du type `https://tiktok-pieces-xxxx.onrender.com`.
+
+Limites de l'offre gratuite (à revérifier sur render.com/docs/free) :
+- le serveur s'endort après environ 15 min sans visite et met environ 1 min à se réveiller ;
+- 0,1 processeur et 512 Mo de mémoire : suffisant pour tester (le serveur consomme environ 5 % d'un processeur en simulation), à surveiller en vrai live ;
+- les fichiers ne sont pas conservés : réglages et parties sont perdus à chaque redémarrage ou nouveau déploiement.
+
 ## Utilisation depuis le téléphone
 
 1. Ouvrir `https://<ton-serveur>/control`, entrer le mot de passe.

@@ -1,0 +1,16 @@
+# Déploiement Render (Blueprint) : offre gratuite, pour tester.
+services:
+  - type: web
+    name: tiktok-pieces
+    runtime: node
+    plan: free
+    branch: claude/app-fonctionnelle-initiale-1v3pxk
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: ADMIN_PASSWORD
+        sync: false
