@@ -48,7 +48,6 @@
   $('g-resume').onclick = $('q-resume').onclick = () => act('game:resume', null, 'C\'est parti !');
   $('g-stop').onclick = () => act('game:stop', null, 'Arrêté (live délié, jeu en pause)');
   $('g-refill').onclick = () => act('game:refill', null, 'Plateau rempli');
-  $('g-resetweekly').onclick = () => { if (confirm('Effacer le classement de la semaine ? (définitif)')) act('game:resetWeekly', null, 'Classement de la semaine remis à zéro'); };
   $('g-resetboard').onclick = () => { if (confirm('Remettre le classement du live à zéro ?')) act('game:resetLeaderboard', null, 'Classement remis à zéro'); };
   $('g-reset').onclick = () => { if (confirm('Tout effacer (joueurs, jetons, points) et repartir de zéro ?')) act('game:resetAll', null, 'Nouvelle partie'); };
 
@@ -283,12 +282,6 @@
       .map(([l, v]) => `<div class="stat"><b>${Number(v).toLocaleString('fr-FR')}</b><span>${l}</span></div>`).join('');
     const slow = s.simSpeed < 0.95;
     $('health').innerHTML = `Version <b>${esc(s.version)}</b> · Vitesse du jeu <b style="color:${slow ? '#ff8a8a' : 'inherit'}">${Math.round(s.simSpeed * 100)} %</b> · Processeur du serveur ${s.cpu} %${slow ? ' — le serveur est trop lent, le jeu tourne au ralenti' : ''}`;
-    const sto = s.storage || {};
-    $('storage').innerHTML = sto.kind === 'base de données'
-      ? (sto.ok ? `💾 Sauvegarde : <b>base de données (Neon)</b> ✅${sto.lastSaveAt ? ' · dernière sauvegarde ' + new Date(sto.lastSaveAt).toLocaleTimeString('fr-FR') : ''}` : `💾 Sauvegarde : <b style="color:#ff8a8a">erreur</b> — ${esc(sto.error || '')}`)
-      : `💾 Sauvegarde : <b>fichier local</b>${sto.fallback || sto.error ? ' — <span style="color:#ff8a8a">' + esc(sto.fallback || sto.error) + '</span>' : ''} · effacé à chaque redémarrage de Render (ajoute DATABASE_URL pour une sauvegarde durable)`;
-    $('week-key').textContent = s.weekly ? s.weekly.week : '';
-    $('weekly').innerHTML = s.weekly && s.weekly.top.length ? s.weekly.top.map((p) => `<li>${esc(p.nickname)} — ${p.points.toLocaleString('fr-FR')} pts</li>`).join('') : '<li class="muted">Pas encore de points cette semaine</li>';
     $('donors').innerHTML = S.donors.length ? S.donors.map((d) => `<li>${esc(d.nickname)} — ${d.diamonds} 💎</li>`).join('') : '<li class="muted">Aucun cadeau</li>';
     $('players').innerHTML = s.players.slice(0, 50).map((p) => `<tr class="${p.active ? '' : 'off'}"><td>${esc(p.nickname)}</td><td>${p.tokens}</td><td>${p.points.toLocaleString('fr-FR')}</td><td>${p.inQueue ? '⏳' : ''}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Aucun joueur</td></tr>';
     $('log').textContent = s.log.slice().reverse().map((l) => new Date(l.t).toLocaleTimeString('fr-FR') + ' ' + l.line).join('\n');

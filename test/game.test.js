@@ -239,7 +239,7 @@ test('option : jetons d\'arrivée réservés aux abonnés', () => {
   assert.equal(g.players.get('b').tokens, 5);
 });
 
-test('sauvegarde et reprise : joueurs, points et file conservés, partie reprise dans le même état', () => {
+test('sauvegarde et reprise : joueurs, points et file conservés, partie en pause', () => {
   const { g } = setup();
   g.handleEvent({ type: 'join', ...A }, 0);
   g.handleEvent({ type: 'join', ...B }, 0);
@@ -250,11 +250,7 @@ test('sauvegarde et reprise : joueurs, points et file conservés, partie reprise
   g2.restore(data, 99);
   assert.equal(g2.players.get('a').points, 40);
   assert.deepEqual(g2.queue, ['a', 'b']);
-  assert.equal(g2.status, 'running');
-  g.pause(50);
-  const { g: g3 } = setup();
-  g3.restore(JSON.parse(JSON.stringify(g.serialize())), 99);
-  assert.equal(g3.status, 'paused');
+  assert.equal(g2.status, 'paused');
 });
 
 test('stress : plusieurs viewers écrivent en même temps, un seul jeton par tour et toujours le bon joueur', () => {

@@ -9,12 +9,11 @@ const SLOT_NAMES = ['gauche', 'centre', 'droite'];
 const HARMFUL = ['jinxShake', 'deviate', 'loseTokens', 'steal'];
 
 class Game {
-  constructor(config, { actions = {}, random = Math.random, onFx = () => {}, onPoints = () => {} } = {}) {
+  constructor(config, { actions = {}, random = Math.random, onFx = () => {} } = {}) {
     this.config = config;
     this.actions = { launch() {}, shake() {}, spawn() {}, coinRain() {}, ...actions };
     this.random = random;
     this.onFx = onFx;
-    this.onPoints = onPoints; // pour le classement hebdomadaire
     this.reset();
   }
 
@@ -30,7 +29,6 @@ class Game {
     this.turnCounter = 0;
     this.stats = { comments: 0, likes: 0, gifts: 0, diamonds: 0, follows: 0, joins: 0, powers: 0, blocked: 0, donors: {} };
     this.version = 0;
-    this.sessionRoomId = null; // live TikTok en cours : un nouveau live remet le classement du live à zéro
   }
 
   setConfig(cfg) { this.config = cfg; this.touch(); }
@@ -414,7 +412,7 @@ class Game {
     }
     const ownerId = this.ownerAt(now);
     const p = ownerId ? this.players.get(ownerId) : null;
-    if (p) { p.points += points; this.onPoints(p, points); this.touch(); }
+    if (p) { p.points += points; this.touch(); }
     this.fx({ type: 'fall', item: item.key, points, player: p ? p.nickname : null, x: item.x, id: item.id });
     return { playerId: p ? p.id : null, points };
   }
@@ -499,7 +497,7 @@ class Game {
   serialize() {
     return {
       players: [...this.players.values()], queue: this.queue, turn: this.turn, prevTurn: this.prevTurn,
-      status: this.status, pausedAt: this.pausedAt, turnCounter: this.turnCounter, stats: this.stats, sessionRoomId: this.sessionRoomId,
+      status: this.status, pausedAt: this.pausedAt, turnCounter: this.turnCounter, stats: this.stats,
       pendingNext: this.pendingNext,
     };
   }
@@ -515,10 +513,8 @@ class Game {
     if (data.turn && this.players.has(data.turn.playerId) && data.turn.phase === 'aim') this.queue.unshift(data.turn.playerId);
     this.turn = null;
     this.prevTurn = null;
-    this.sessionRoomId = data.sessionRoomId || null;
-    // La partie reprend comme elle était : en cours si elle tournait, en pause sinon.
-    this.status = data.status === 'paused' ? 'paused' : 'running';
-    this.pausedAt = this.status === 'paused' ? now : null;
+    this.status = 'paused';
+    this.pausedAt = now;
     this.touch();
   }
 }

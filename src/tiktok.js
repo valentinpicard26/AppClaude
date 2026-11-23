@@ -50,7 +50,7 @@ class TikTokSource {
 
     try {
       await conn.connect();
-      this.setStatus({ state: 'connected', roomId: conn.roomId ? String(conn.roomId) : null });
+      this.setStatus({ state: 'connected' });
     } catch (e) {
       this.conn = null;
       const msg = explainError(e);
