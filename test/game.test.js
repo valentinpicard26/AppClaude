@@ -309,3 +309,25 @@ test('connecteur : erreurs connues expliquées en français, message d\'origine 
   assert.match(explainError(new Error("The requested user isn't online :(")), /pas en direct/);
   assert.equal(explainError(new Error('autre')), 'autre');
 });
+
+test('liste « cadeau → effet » affichée aux viewers', () => {
+  const { rewardsList } = require('../src/rewards');
+  const cfg = applyConfigPatch(defaultConfig(), {
+    giftCatalog: [{ id: '5655', name: 'Rose', diamonds: 1, image: 'https://x/rose.png' }],
+    giftRules: [
+      { name: 'Rose', giftId: '5655', action: 'shake', param: 1 },
+      { name: '', minDiamonds: 99, maxDiamonds: 198, action: 'spawn', param: 'diamant' },
+      { name: '', minDiamonds: 699, maxDiamonds: 998, action: 'steal', param: 3 },
+      { name: '', minDiamonds: 4999, maxDiamonds: 999999, action: 'spawn', param: 'coffre' },
+      { name: '', minDiamonds: 5, maxDiamonds: 9, action: 'none', param: 0 },
+    ],
+  });
+  const list = rewardsList(cfg);
+  assert.deepEqual(list.map((r) => r.cost.replace(/\s/g, ' ')), ['1 pièce', '99 à 198 pièces', '699 à 998 pièces', '4 999 pièces et +']);
+  assert.equal(list[0].image, 'https://x/rose.png');
+  assert.match(list[1].text, /Diamant.*500 pts/);
+  assert.match(list[2].text, /Vole 3 jetons/);
+  // mode paisible : les pouvoirs qui gênent ne sont pas annoncés
+  const calm = rewardsList({ ...cfg, peaceful: true });
+  assert.ok(!calm.some((r) => /Vole/.test(r.text)));
+});

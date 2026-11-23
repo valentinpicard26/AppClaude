@@ -14,6 +14,7 @@ const { Game } = require('./src/game');
 const { Machine, STEP_MS, W, D, SLOT_X } = require('./src/machine');
 const { TikTokSource } = require('./src/tiktok');
 const { Simulator } = require('./src/simulator');
+const { rewardsList } = require('./src/rewards');
 
 const PORT = Number(process.env.PORT) || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
@@ -166,6 +167,7 @@ function initPayload() {
     W, D, slotX: SLOT_X,
     items: config.items.map((i) => ({ key: i.key, kind: i.kind, points: i.points, pointsMax: i.pointsMax, color: i.color, label: i.label })),
     sounds: config.sounds, music: config.music, musicVolume: config.musicVolume, sfxVolume: config.sfxVolume,
+    showRewards: config.showRewards, rewardsSeconds: config.rewardsSeconds, rewards: rewardsList(config),
   };
 }
 

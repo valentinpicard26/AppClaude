@@ -91,6 +91,8 @@ function defaultConfig() {
     powerCooldownSeconds: 20,   // PROPOSÉ : délai entre deux pouvoirs sur un même joueur
     // Divers
     liveUsername: '',
+    showRewards: true,          // liste « cadeau → effet » affichée aux viewers, en rotation
+    rewardsSeconds: 4,          // durée d'affichage de chaque ligne
     sounds: true,
     sfxVolume: 70,              // volume des bruitages (0 à 100)
     music: true,                // musique d'ambiance générée (originale, libre de droits)
@@ -108,7 +110,7 @@ const NUMERIC_LIMITS = {
   followTokens: [0, 100], coinsOnPlate: [0, 200], ticketsOnPlate: [0, 30], maxObjects: [20, 300],
   pusherStroke: [20, 150], pusherPeriodSeconds: [1, 10], sideGapRatio: [0, 0.8], shakeIntensity: [1, 10],
   shakeDurationMs: [100, 3000], coinRainDelayMs: [50, 2000],
-  shieldSeconds: [5, 600], powerCooldownSeconds: [0, 300], sfxVolume: [0, 100], musicVolume: [0, 100],
+  shieldSeconds: [5, 600], powerCooldownSeconds: [0, 300], sfxVolume: [0, 100], musicVolume: [0, 100], rewardsSeconds: [2, 20],
 };
 
 // Fusionne une mise à jour partielle en validant les types et les bornes.

@@ -461,7 +461,7 @@ class Game {
       queueLength: this.queue.length,
       leaderboard: this.leaderboard(5),
       commands: [this.config.commandsLeft, this.config.commandsCenter, this.config.commandsRight].map((s) => String(s).split(',')[0].trim()),
-      likesPerRefill: this.config.likesPerRefill, tokensPerLikeRefill: this.config.tokensPerLikeRefill, startTokens: this.config.startTokens,
+      likesPerRefill: this.config.likesPerRefill, tokensPerLikeRefill: this.config.tokensPerLikeRefill, startTokens: this.config.startTokens, followTokens: this.config.followTokens,
     };
   }
 

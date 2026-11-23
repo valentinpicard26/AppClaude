@@ -79,7 +79,7 @@
       ['shieldSeconds', 'Durée du bouclier (s)'],
       ['powerCooldownSeconds', 'Délai entre deux pouvoirs (s)', 'Un joueur touché trop tôt subit l\'effet à son tour suivant'],
     ],
-    'f-misc': [['sounds', 'Bruitages'], ['sfxVolume', 'Volume des bruitages (0 à 100)'], ['music', 'Musique d\'ambiance', 'Générée par le jeu : originale et libre de droits'], ['musicVolume', 'Volume de la musique (0 à 100)'], ['blockedNames', 'Pseudos bloqués', 'Séparés par des virgules']],
+    'f-misc': [['showRewards', 'Afficher « cadeau → effet » aux viewers', 'En rotation en bas de l\'écran du jeu, avec les likes et l\'abonnement'], ['rewardsSeconds', 'Durée de chaque ligne (s)'],['sounds', 'Bruitages'], ['sfxVolume', 'Volume des bruitages (0 à 100)'], ['music', 'Musique d\'ambiance', 'Générée par le jeu : originale et libre de droits'], ['musicVolume', 'Volume de la musique (0 à 100)'], ['blockedNames', 'Pseudos bloqués', 'Séparés par des virgules']],
   };
 
   function renderSettings(cfg) {
