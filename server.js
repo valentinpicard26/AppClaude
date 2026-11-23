@@ -9,7 +9,8 @@ const crypto = require('crypto');
 const express = require('express');
 const { Server } = require('socket.io');
 
-const { loadConfig, saveConfig, applyConfigPatch, mergeCatalog } = require('./src/config');
+const { loadConfig, applyConfigPatch, mergeCatalog, defaultConfig } = require('./src/config');
+const { createStore, FileStore, weekKey } = require('./src/store');
 const { Game } = require('./src/game');
 const { Machine, STEP_MS, W, D, SLOT_X } = require('./src/machine');
 const { TikTokSource } = require('./src/tiktok');
@@ -22,10 +23,17 @@ const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const STATE_FILE = path.join(DATA_DIR, 'state.json');
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 
-let config = loadConfig(CONFIG_FILE);
-// Sur un hébergement sans disque (Render gratuit), les réglages sont perdus au redémarrage :
-// l'application de contrôle garde une copie et propose de la restaurer quand ce drapeau est faux.
-let configCustomized = !!config.fromFile;
+const WEEK_TZ = process.env.WEEK_TIMEZONE || 'Europe/Paris';
+
+// Réglages par défaut au démarrage ; ceux sauvegardés sont chargés dans start().
+let config = defaultConfig();
+// Faux tant qu'aucun réglage n'a été sauvegardé : l'application de contrôle propose alors
+// de restaurer la copie gardée dans le téléphone.
+let configCustomized = false;
+
+// Sauvegarde durable : base de données si DATABASE_URL est défini (Neon), sinon fichier local.
+let store = createStore({ databaseUrl: process.env.DATABASE_URL, dataDir: DATA_DIR });
+const storage = { kind: store.kind, ok: false, error: null, lastSaveAt: 0 };
 
 const app = express();
 const server = http.createServer(app);
@@ -54,33 +62,71 @@ const game = new Game(config, {
     coinRain: (n, opts) => machine.coinRain(n, opts),
   },
   onFx: (e) => io.to('display').emit('fx', e),
+  onPoints: (p, points) => addWeeklyPoints(p, points),
 });
 
-// Reprise après plantage
-let restored = false;
-try {
-  if (fs.existsSync(STATE_FILE)) {
-    const s = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-    game.restore(s.game, Date.now());
-    restored = machine.restore(s.machine) && machine.objects.size > 0;
-    console.log('[état] partie restaurée (en pause) :', game.players.size, 'joueurs');
-  }
-} catch (e) {
-  console.error('[état] restauration impossible :', e.message);
+// ---------- Sauvegarde ----------
+function storageError(what, e) {
+  storage.ok = false;
+  storage.error = `${what} : ${String(e?.message || e).slice(0, 200)}`;
+  console.error('[sauvegarde]', storage.error);
 }
-if (!restored) machine.prefill();
 
-function saveState() {
+function saveConfig() {
+  store.set('config', config).then(() => { storage.ok = true; storage.error = null; storage.lastSaveAt = Date.now(); })
+    .catch((e) => storageError('réglages non sauvegardés', e));
+}
+
+// État de la partie : sauvegardé seulement s'il a changé (la base Neon peut ainsi s'endormir hors des lives).
+let savedVersion = -1;
+let saving = false;
+async function saveState(force = false) {
+  if (saving || (!force && game.version === savedVersion)) return;
+  saving = true;
+  const version = game.version;
   try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    const tmp = STATE_FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify({ savedAt: Date.now(), game: game.serialize(), machine: machine.serialize() }));
-    fs.renameSync(tmp, STATE_FILE);
+    await store.set('state', { savedAt: Date.now(), game: game.serialize(), machine: machine.serialize() });
+    savedVersion = version;
+    storage.ok = true; storage.error = null; storage.lastSaveAt = Date.now();
   } catch (e) {
-    console.error('[état] sauvegarde impossible :', e.message);
+    storageError('partie non sauvegardée', e);
+  } finally {
+    saving = false;
   }
 }
-setInterval(saveState, 5000);
+
+// Classement hebdomadaire : les points gagnés sont regroupés puis ajoutés en base toutes les 10 s.
+const pendingWeekly = new Map();
+let weekly = { week: weekKey(new Date(), WEEK_TZ), top: [] };
+function addWeeklyPoints(p, points) {
+  const cur = pendingWeekly.get(p.id) || { userId: p.id, nickname: p.nickname, points: 0 };
+  cur.points += points; cur.nickname = p.nickname;
+  pendingWeekly.set(p.id, cur);
+}
+async function flushWeekly() {
+  const week = weekKey(new Date(), WEEK_TZ);
+  const rows = [...pendingWeekly.values()];
+  pendingWeekly.clear();
+  try {
+    if (rows.length) await store.addWeekly(week, rows);
+    const top = await store.topWeekly(week, 5);
+    weekly = { week, top: top.map((x) => ({ nickname: x.nickname, points: x.points })) };
+  } catch (e) {
+    for (const r of rows) addWeeklyPoints({ id: r.userId, nickname: r.nickname }, r.points); // on réessaiera
+    storageError('classement hebdomadaire non sauvegardé', e);
+  }
+}
+// Pour l'affichage : classement de la semaine + points pas encore envoyés en base.
+function weeklyView() {
+  if (!pendingWeekly.size) return weekly.top;
+  const map = new Map(weekly.top.map((x) => [x.nickname, { ...x }]));
+  for (const r of pendingWeekly.values()) {
+    const cur = map.get(r.nickname) || { nickname: r.nickname, points: 0 };
+    cur.points += r.points; map.set(r.nickname, cur);
+  }
+  return [...map.values()].sort((a, b) => b.points - a.points).slice(0, 5);
+}
+function publicState(now) { return { ...game.publicState(now), weekly: weeklyView() }; }
 
 // ---------- Sources d'événements ----------
 const log = [];
@@ -93,7 +139,7 @@ function handleEvent(ev, source) {
   if (ev.type === 'gift' && ev.giftId && ev.giftName && !config.giftCatalog.some((g) => g.id === String(ev.giftId))) {
     config = { ...config, giftCatalog: mergeCatalog(config.giftCatalog, [{ id: ev.giftId, name: ev.giftName, diamonds: ev.diamondCount, image: ev.giftImage }]) };
     game.setConfig(config);
-    if (configCustomized) saveConfig(CONFIG_FILE, config);
+    if (configCustomized) saveConfig();
   }
   const res = game.handleEvent(ev, Date.now());
   const what = ev.type === 'chat' ? `"${String(ev.comment).slice(0, 40)}"` : ev.type === 'gift' ? `${ev.giftName || 'cadeau'} (${ev.diamondCount}💎 x${ev.repeatCount || 1})` : ev.type === 'like' ? `${ev.likeCount} likes` : '';
@@ -114,6 +160,9 @@ let acc = 0;
 let stepCount = 0;
 let lastStateVersion = -1;
 let lastStateSent = 0;
+function startLoops() {
+setInterval(() => saveState(), 10000);
+setInterval(() => flushWeekly(), 10000);
 setInterval(() => {
   const nowPerf = performance.now();
   acc = Math.min(acc + (nowPerf - last), 250);
@@ -133,7 +182,7 @@ setInterval(() => {
   if (game.version !== lastStateVersion || now - lastStateSent > 500) {
     lastStateVersion = game.version;
     lastStateSent = now;
-    io.to('display').emit('state', game.publicState(now));
+    io.to('display').emit('state', publicState(now));
   }
 }, 8);
 
@@ -141,6 +190,7 @@ setInterval(() => {
 setInterval(() => {
   io.to('control').emit('control:state', controlState());
 }, 1000);
+}
 
 // Mesures de santé : vitesse de la simulation (1 = temps réel) et charge processeur du serveur.
 const perf = { steps: 0, simSpeed: 1, cpu: 0, lastAt: Date.now(), lastCpu: process.cpuUsage() };
@@ -159,6 +209,7 @@ function controlState() {
     live: tiktok.status, simAuto: sim.auto, log: log.slice(-25), objects: machine.objects.size,
     version: VERSION, simSpeed: perf.simSpeed, cpu: perf.cpu,
     hasSignKey: !!process.env.TIKTOK_SIGN_API_KEY, passwordSet: !!ADMIN_PASSWORD, configCustomized,
+    storage: { ...storage }, weekly: { week: weekly.week, top: weeklyView() },
   };
 }
 
@@ -176,7 +227,7 @@ function applyConfig(patch) {
   configCustomized = true;
   game.setConfig(config);
   machine.setConfig(config);
-  saveConfig(CONFIG_FILE, config);
+  saveConfig();
   io.to('display').emit('init', initPayload());
 }
 
@@ -191,7 +242,7 @@ io.on('connection', (socket) => {
   socket.on('display:hello', () => {
     socket.join('display');
     socket.emit('init', initPayload());
-    socket.emit('state', game.publicState(Date.now()));
+    socket.emit('state', publicState(Date.now()));
     socket.emit('snap', machine.snapshot());
   });
 
@@ -221,16 +272,30 @@ io.on('connection', (socket) => {
   admin('live:connect', async (d) => {
     applyConfig({ liveUsername: String(d?.username || '').replace(/^@/, '').trim() });
     await tiktok.connect(d?.username, { signApiKey: process.env.TIKTOK_SIGN_API_KEY });
+    // Nouveau live (autre salle TikTok que la dernière fois) : on repart avec un classement du live vierge.
+    // Le classement de la semaine, lui, est conservé.
+    const roomId = tiktok.status.roomId;
+    if (roomId && game.sessionRoomId && roomId !== game.sessionRoomId) {
+      game.reset();
+      pushLog('[live] nouveau live : joueurs et classement du live remis à zéro (classement de la semaine conservé)');
+    }
+    if (roomId) game.sessionRoomId = roomId;
   });
   admin('live:disconnect', () => tiktok.disconnect());
   admin('game:pause', () => game.pause(Date.now()));
   admin('game:resume', () => game.resume(Date.now()));
   admin('game:stop', async () => { await tiktok.disconnect(); sim.setAuto(false); game.pause(Date.now()); });
-  admin('game:resetAll', () => { game.reset(); machine.prefill(); saveState(); pushLog('[contrôle] remise à zéro complète'); });
+  admin('game:resetAll', async () => { game.reset(); machine.prefill(); await saveState(true); pushLog('[contrôle] remise à zéro complète'); });
   admin('game:resetLeaderboard', () => { game.resetLeaderboard(); pushLog('[contrôle] classement remis à zéro'); });
+  admin('game:resetWeekly', async () => {
+    pendingWeekly.clear();
+    await store.resetWeekly(weekKey(new Date(), WEEK_TZ));
+    await flushWeekly();
+    pushLog('[contrôle] classement de la semaine remis à zéro');
+  });
   admin('game:refill', () => { machine.prefill(); pushLog('[contrôle] plateau rempli à nouveau'); });
   admin('config:update', (patch) => { applyConfig(patch); });
-  admin('config:reset', () => { const { defaultConfig } = require('./src/config'); config = defaultConfig(); applyConfig({}); });
+  admin('config:reset', () => { config = defaultConfig(); applyConfig({}); });
   admin('gifts:fetch', async (d) => {
     const gifts = await tiktok.fetchGifts(d?.username || config.liveUsername, { signApiKey: process.env.TIKTOK_SIGN_API_KEY });
     if (!gifts.length) throw new Error('TikTok n\'a renvoyé aucun cadeau');
@@ -246,14 +311,59 @@ io.on('connection', (socket) => {
   admin('sim:auto', (on) => sim.setAuto(!!on));
 });
 
-function shutdown() {
-  saveState();
+// Arrêt (redémarrage ou mise en veille de Render) : dernière sauvegarde, 8 s maximum.
+let stopping = false;
+async function shutdown() {
+  if (stopping) return;
+  stopping = true;
+  const timer = setTimeout(() => process.exit(0), 8000);
+  try { await Promise.all([saveState(true), flushWeekly()]); await store.close(); } catch { /* on s'arrête quand même */ }
+  clearTimeout(timer);
   process.exit(0);
 }
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
-server.listen(PORT, () => {
-  console.log(`Pousse-pièces prêt : http://localhost:${PORT}  (contrôle : /control)`);
-  if (!ADMIN_PASSWORD) console.log('ATTENTION : ADMIN_PASSWORD non défini, l\'application de contrôle est ouverte à tous.');
-});
+// ---------- Démarrage : charge la sauvegarde, puis lance le jeu ----------
+async function start() {
+  try {
+    await store.init();
+    storage.ok = true;
+  } catch (e) {
+    storageError('base de données injoignable, sauvegarde dans un fichier local à la place', e);
+    store = new FileStore(DATA_DIR);
+    storage.kind = store.kind;
+    storage.fallback = storage.error; // reste affiché dans le contrôle
+    await store.init();
+  }
+  // Réglages : base de données, sinon ancien fichier config.json (migration), sinon valeurs par défaut.
+  try {
+    let saved = await store.get('config');
+    if (!saved && fs.existsSync(CONFIG_FILE)) saved = loadConfig(CONFIG_FILE);
+    if (saved) { config = applyConfigPatch(defaultConfig(), saved); configCustomized = true; }
+  } catch (e) { storageError('réglages illisibles', e); }
+  game.setConfig(config);
+  machine.setConfig(config);
+
+  // Reprise après plantage ou redémarrage : joueurs et plateau, partie remise en pause.
+  let restored = false;
+  try {
+    let s = await store.get('state');
+    if (!s && fs.existsSync(STATE_FILE)) s = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    if (s) {
+      game.restore(s.game, Date.now());
+      restored = machine.restore(s.machine) && machine.objects.size > 0;
+      savedVersion = game.version;
+      console.log('[état] partie restaurée (en pause) :', game.players.size, 'joueurs');
+    }
+  } catch (e) { storageError('partie illisible', e); }
+  if (!restored) machine.prefill();
+  await flushWeekly();
+
+  startLoops();
+  server.listen(PORT, () => {
+    console.log(`Pousse-pièces prêt : http://localhost:${PORT}  (contrôle : /control) — sauvegarde : ${storage.kind}`);
+    if (!ADMIN_PASSWORD) console.log('ATTENTION : ADMIN_PASSWORD non défini, l\'application de contrôle est ouverte à tous.');
+  });
+}
+start();

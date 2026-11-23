@@ -331,9 +331,7 @@
     $('idle-tokens').textContent = state.startTokens;
     $('idle-cmds').textContent = `${state.commands[0]}, ${state.commands[1]} ou ${state.commands[2]}`;
     $('paused').classList.toggle('hidden', state.status !== 'paused');
-    $('board-list').innerHTML = state.leaderboard.length
-      ? state.leaderboard.map((p, i) => `<li><span class="n">${i + 1}. ${esc(p.nickname)}</span><span class="v">${fmt(p.points)}</span></li>`).join('')
-      : '<li><span class="n">Pas encore de points</span></li>';
+    renderBoard();
     const roster = state.roster || [];
     let pos = 0;
     $('queue-list').innerHTML = roster.length
@@ -347,6 +345,17 @@
 
     turnClock = { at: performance.now(), remaining: t ? t.remainingMs : 0, total: t ? t.totalMs : 1, phase: t?.phase, paused: state.status === 'paused' };
   }
+  // Classement : alterne entre le live et la semaine toutes les 8 secondes.
+  let boardWeekly = false;
+  function renderBoard() {
+    if (!state) return;
+    const list = boardWeekly ? (state.weekly || []) : state.leaderboard;
+    $('board-title').textContent = boardWeekly ? '📅 Classement de la semaine' : '🏆 Classement du live';
+    $('board-list').innerHTML = list.length
+      ? list.map((p, i) => `<li><span class="n">${i + 1}. ${esc(p.nickname)}</span><span class="v">${fmt(p.points)}</span></li>`).join('')
+      : '<li><span class="n">Pas encore de points</span></li>';
+  }
+  setInterval(() => { boardWeekly = !boardWeekly; renderBoard(); }, 8000);
   let turnClock = null;
   function updateTurnBar() {
     if (!turnClock || !state?.turn) return;

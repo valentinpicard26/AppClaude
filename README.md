@@ -17,7 +17,9 @@ Variables d'environnement :
 | `PORT` | Port HTTP (fourni automatiquement par la plupart des hébergeurs) |
 | `ADMIN_PASSWORD` | Mot de passe de `/control`. **À définir dès que le serveur est en ligne**, sinon n'importe qui peut piloter le jeu. |
 | `TIKTOK_SIGN_API_KEY` | Clé du service de signature (Euler Stream) utilisée par TikTok-Live-Connector. Optionnelle, l'offre gratuite est limitée. |
-| `DATA_DIR` | Dossier de sauvegarde (réglages + état de la partie). Par défaut `./data`. |
+| `DATABASE_URL` | Adresse de la base Postgres (Neon) : réglages, partie et classement hebdomadaire survivent aux redémarrages. Sans elle, sauvegarde dans un fichier local. |
+| `WEEK_TIMEZONE` | Fuseau du classement de la semaine (lundi 0 h → dimanche 24 h). Par défaut `Europe/Paris`. |
+| `DATA_DIR` | Dossier du fichier de sauvegarde quand il n'y a pas de base de données. Par défaut `./data`. |
 
 ## Branches et sites
 
@@ -60,6 +62,7 @@ Limites de l'offre gratuite (à revérifier sur render.com/docs/free) :
 - Application de contrôle : Live, Réglages, Cadeaux, Simulateur, Aperçu, statistiques, journal.
 - Catalogue des cadeaux TikTok (chargé depuis TikTok, complété par les cadeaux reçus ou ajouté à la main) : un effet au choix pour chaque cadeau.
 - Bruitages de pièces (tintements synthétisés) et musique d'ambiance calme générée par le jeu : originaux, donc libres de droits ; volumes réglables.
+- Sauvegarde durable dans Neon (Postgres) : réglages, joueurs, plateau et classement hebdomadaire ; un nouveau live remet le classement du live à zéro, pas celui de la semaine. Le classement affiché alterne entre le live et la semaine.
 - Vitesse du jeu et charge du serveur affichées dans l'onglet Live, avec la version déployée.
 - Copie des réglages dans le téléphone (onglet contrôle) et proposition de restauration quand le serveur a redémarré sans ses fichiers (Render gratuit).
 - Sauvegarde continue (toutes les 5 s) et reprise en pause après un plantage.
@@ -69,7 +72,7 @@ Limites de l'offre gratuite (à revérifier sur render.com/docs/free) :
 ## Pas encore fait
 
 - Choix définitif des cadeaux pour chaque effet (« À trancher ») : les valeurs actuelles sont proposées par défaut.
-- Classement hebdomadaire et sauvegarde durable des joueurs (l'offre gratuite de Render efface les fichiers à chaque redémarrage), modération automatique des pseudos (seule la liste de blocage manuelle existe), onglet Mise en page.
+- Modération automatique des pseudos (seule la liste de blocage manuelle existe), onglet Mise en page.
 - Son : signalé comme absent sur le téléphone du créateur, cause non trouvée.
 - Empilement réel des jetons : la physique est en 2D vue de dessus, les jetons glissent et se poussent mais ne montent pas les uns sur les autres.
 
@@ -82,6 +85,8 @@ src/machine.js       physique du plateau (Matter.js)
 src/config.js        réglages par défaut et validation
 src/tiktok.js        connecteur TikTok LIVE
 src/simulator.js     faux viewers
+src/store.js         sauvegarde (Neon/Postgres ou fichier) et classement hebdomadaire
+src/rewards.js       liste « cadeau → effet » affichée aux viewers
 public/              page du jeu (index.html) et application de contrôle (control.html)
 test/                tests automatiques (node --test)
 ```
