@@ -44,7 +44,7 @@ function rewardsList(config) {
       const g = catalog.find((x) => (r.giftId && x.id === String(r.giftId)) || x.name.toLowerCase() === String(r.name).toLowerCase());
       out.push({ gift: r.name || g?.name || 'Cadeau', image: g?.image || '', cost: g ? costText(g.diamonds, g.diamonds) : '', sort: g ? g.diamonds : 0, ...eff });
     } else {
-      out.push({ gift: 'Cadeau', image: '', cost: costText(r.minDiamonds, r.maxDiamonds), sort: r.minDiamonds, ...eff });
+      out.push({ gift: 'Autre cadeau', image: '', cost: costText(r.minDiamonds, r.maxDiamonds), sort: r.minDiamonds, ...eff });
     }
   }
   return out.sort((a, b) => a.sort - b.sort).map(({ sort, ...rest }) => rest);

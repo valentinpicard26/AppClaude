@@ -36,9 +36,28 @@ function defaultItems() {
 // spawn (objet bonus, param = clé d'objet), queueSkip (passer devant, param = nombre de places, 0 = tout devant),
 // shield (bouclier pour le donateur), et pouvoirs qui gênent le joueur du tour : jinxShake (secousse au lancer),
 // deviate (jeton dévié), loseTokens (perte, param = nombre), steal (vol au profit du donateur, param = nombre), none.
+// Petits cadeaux TikTok courants, avec leur prix en pièces relevé sur des listes publiques (nov. 2026, non officielles :
+// le prix réel peut varier selon le pays). L'identifiant « nom-… » est provisoire : dès que le cadeau est reçu en live
+// ou chargé depuis TikTok, il est remplacé par le vrai identifiant, et son image s'ajoute.
+const STARTER_GIFTS = [
+  { id: '5655', name: 'Rose', diamonds: 1, action: 'shake', param: 1 },
+  { id: 'nom-gg', name: 'GG', diamonds: 1, action: 'shake', param: 1 },
+  { id: 'nom-ice-cream-cone', name: 'Ice Cream Cone', diamonds: 1, action: 'coinRain', param: 2 },
+  { id: 'nom-finger-heart', name: 'Finger Heart', diamonds: 5, action: 'queueSkip', param: 2 },
+  { id: 'nom-perfume', name: 'Perfume', diamonds: 20, action: 'jinxShake', param: 1 },
+  { id: 'nom-doughnut', name: 'Doughnut', diamonds: 30, action: 'deviate', param: 1 },
+  { id: 'nom-confetti', name: 'Confetti', diamonds: 100, action: 'shield', param: 0 },
+];
+
+function defaultGiftCatalog() {
+  return STARTER_GIFTS.map(({ id, name, diamonds }) => ({ id, name, diamonds, image: '' }));
+}
+
 function defaultGiftRules() {
   return [
-    { name: 'Rose', minDiamonds: 0, maxDiamonds: 0, action: 'shake', param: 1 },
+    // Cadeaux précis (prioritaires) : petits cadeaux = effets doux et pouvoirs les moins pénalisants.
+    ...STARTER_GIFTS.map((g) => ({ name: g.name, giftId: g.id, minDiamonds: 0, maxDiamonds: 0, action: g.action, param: g.param })),
+    // Puis règles par valeur pour tous les autres cadeaux.
     { name: '', minDiamonds: 1, maxDiamonds: 9, action: 'shake', param: 1 },
     { name: '', minDiamonds: 10, maxDiamonds: 29, action: 'queueSkip', param: 3 },
     { name: '', minDiamonds: 30, maxDiamonds: 98, action: 'coinRain', param: 5 },
@@ -100,7 +119,7 @@ function defaultConfig() {
     blockedNames: '',           // pseudos ou identifiants bloqués, séparés par des virgules
     items: defaultItems(),
     giftRules: defaultGiftRules(),
-    giftCatalog: [],            // liste des cadeaux TikTok connus : { id, name, diamonds, image }
+    giftCatalog: defaultGiftCatalog(), // liste des cadeaux TikTok connus : { id, name, diamonds, image }
   };
 }
 
@@ -172,9 +191,22 @@ function sanitizeCatalog(list) {
 
 // Ajoute ou met à jour des cadeaux dans le catalogue (par identifiant).
 function mergeCatalog(catalog, gifts) {
-  const map = new Map((catalog || []).map((g) => [g.id, g]));
-  for (const g of sanitizeCatalog(gifts)) map.set(g.id, { ...map.get(g.id), ...g, image: g.image || map.get(g.id)?.image || '' });
+  const incoming = sanitizeCatalog(gifts);
+  // Un cadeau connu seulement par son nom (identifiant provisoire « nom-… ») prend son vrai identifiant.
+  const realNames = new Set(incoming.filter((g) => !g.id.startsWith('nom-')).map((g) => g.name.toLowerCase()));
+  catalog = (catalog || []).filter((g) => !(g.id.startsWith('nom-') && realNames.has(g.name.toLowerCase())));
+  const map = new Map(catalog.map((g) => [g.id, g]));
+  for (const g of incoming) map.set(g.id, { ...map.get(g.id), ...g, image: g.image || map.get(g.id)?.image || '' });
   return sanitizeCatalog([...map.values()]);
+}
+
+// Les règles liées à un identifiant provisoire « nom-… » suivent le vrai identifiant du cadeau du même nom.
+function adoptGiftIds(rules, catalog) {
+  return (rules || []).map((r) => {
+    if (!r.giftId || !String(r.giftId).startsWith('nom-')) return r;
+    const real = (catalog || []).find((g) => !g.id.startsWith('nom-') && g.name.toLowerCase() === String(r.name).toLowerCase());
+    return real ? { ...r, giftId: real.id } : r;
+  });
 }
 
 function loadConfig(file) {
@@ -198,4 +230,4 @@ function saveConfig(file, cfg) {
   fs.renameSync(tmp, file);
 }
 
-module.exports = { defaultConfig, applyConfigPatch, loadConfig, saveConfig, mergeCatalog, NUMERIC_LIMITS };
+module.exports = { defaultConfig, applyConfigPatch, loadConfig, saveConfig, mergeCatalog, adoptGiftIds, NUMERIC_LIMITS };

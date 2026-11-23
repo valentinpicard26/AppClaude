@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const express = require('express');
 const { Server } = require('socket.io');
 
-const { loadConfig, saveConfig, applyConfigPatch, mergeCatalog } = require('./src/config');
+const { loadConfig, saveConfig, applyConfigPatch, mergeCatalog, adoptGiftIds } = require('./src/config');
 const { Game } = require('./src/game');
 const { Machine, STEP_MS, W, D, SLOT_X } = require('./src/machine');
 const { TikTokSource } = require('./src/tiktok');
@@ -91,8 +91,10 @@ function pushLog(line) {
 function handleEvent(ev, source) {
   // Chaque cadeau reçu enrichit le catalogue (nom, valeur, image), pour pouvoir lui attribuer un effet.
   if (ev.type === 'gift' && ev.giftId && ev.giftName && !config.giftCatalog.some((g) => g.id === String(ev.giftId))) {
-    config = { ...config, giftCatalog: mergeCatalog(config.giftCatalog, [{ id: ev.giftId, name: ev.giftName, diamonds: ev.diamondCount, image: ev.giftImage }]) };
+    const giftCatalog = mergeCatalog(config.giftCatalog, [{ id: ev.giftId, name: ev.giftName, diamonds: ev.diamondCount, image: ev.giftImage }]);
+    config = { ...config, giftCatalog, giftRules: adoptGiftIds(config.giftRules, giftCatalog) };
     game.setConfig(config);
+    io.to('display').emit('init', initPayload()); // la liste affichée gagne l'image du cadeau
     if (configCustomized) saveConfig(CONFIG_FILE, config);
   }
   const res = game.handleEvent(ev, Date.now());
@@ -234,7 +236,8 @@ io.on('connection', (socket) => {
   admin('gifts:fetch', async (d) => {
     const gifts = await tiktok.fetchGifts(d?.username || config.liveUsername, { signApiKey: process.env.TIKTOK_SIGN_API_KEY });
     if (!gifts.length) throw new Error('TikTok n\'a renvoyé aucun cadeau');
-    applyConfig({ giftCatalog: mergeCatalog(config.giftCatalog, gifts) });
+    const giftCatalog = mergeCatalog(config.giftCatalog, gifts);
+    applyConfig({ giftCatalog, giftRules: adoptGiftIds(config.giftRules, giftCatalog) });
     pushLog(`[contrôle] ${gifts.length} cadeaux chargés depuis TikTok`);
     return { count: gifts.length };
   });

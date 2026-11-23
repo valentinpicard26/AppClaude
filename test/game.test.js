@@ -358,3 +358,19 @@ test('le même viewer reste le même joueur entre arrivée, commentaire et likes
   assert.equal(g.players.size, 1);
   assert.equal(g.players.get('7123456789').tokens, 9); // 5 - 1 lancé + 5 (100 likes)
 });
+
+test('petits cadeaux par défaut : effets doux, puis le vrai identifiant TikTok remplace le provisoire', () => {
+  const { mergeCatalog, adoptGiftIds } = require('../src/config');
+  const { g, calls } = setup();
+  // Reconnus par leur nom même avant d'avoir leur vrai identifiant
+  g.handleEvent({ type: 'gift', ...B, giftId: '9999', giftName: 'Ice Cream Cone', diamondCount: 1 }, 0);
+  assert.deepEqual(calls.coinRain, [2]);
+  g.handleEvent({ type: 'gift', ...B, giftId: '5655', giftName: 'Rose', diamondCount: 1 }, 0);
+  assert.equal(calls.shake, 1);
+  // Le cadeau reçu prend la place de l'entrée provisoire, et la règle suit le vrai identifiant
+  const cat = mergeCatalog(g.config.giftCatalog, [{ id: '7934', name: 'Perfume', diamonds: 20, image: 'https://x/p.png' }]);
+  assert.ok(!cat.some((x) => x.id === 'nom-perfume'));
+  assert.equal(cat.find((x) => x.name === 'Perfume').image, 'https://x/p.png');
+  const rules = adoptGiftIds(g.config.giftRules, cat);
+  assert.equal(rules.find((r) => r.name === 'Perfume').giftId, '7934');
+});

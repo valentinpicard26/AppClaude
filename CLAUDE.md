@@ -64,7 +64,7 @@ Ces règles ont été suggérées pendant la conception et le créateur a accept
 
 ### À trancher
 
-- [ ] Quels cadeaux (de quelle valeur) font apparaître quels objets bonus, donnent quels pouvoirs ou le bouclier, et lesquels font passer devant ? De combien de places ? *(Pas encore décidé : en attendant, valeurs proposées par défaut, modifiables dans l'onglet Cadeaux.)*
+- [ ] Quels cadeaux (de quelle valeur) font apparaître quels objets bonus, donnent quels pouvoirs ou le bouclier, et lesquels font passer devant ? De combien de places ? *(En partie décidé : à la demande du créateur, des petits cadeaux courants sont associés par défaut aux effets doux et aux pouvoirs les moins pénalisants — Rose et GG : secousse ; Ice Cream Cone : pluie de 2 jetons ; Finger Heart : passer 2 places ; Perfume : secousse au lancer ; Doughnut : jeton dévié ; Confetti : bouclier. Ces deux pouvoirs à petit prix s'écartent de la règle « pouvoirs liés à de hautes récompenses » ; perte et vol de jetons restent sur des cadeaux chers. Le reste est réglé par valeur, et tout se modifie dans l'onglet Cadeaux.)*
 - [x] Les 5 jetons d'arrivée sont-ils donnés à tous, ou réservés aux abonnés (qui reçoivent déjà 5 jetons) ? **Décidé : donnés à tous les viewers qui arrivent.** S'y ajoutent 5 jetons par tranche de 100 likes et 5 jetons à l'abonnement.
 - [x] Les jetons volés vont-ils bien à l'attaquant ? **Décidé : oui, les jetons volés vont à l'attaquant.**
 - [x] Sauvegarde durable et classement hebdomadaire ? **Décidé (pour l'instant) : non.** Le créateur accepte que tout reparte à zéro à chaque redémarrage ou nouveau live ; seul le classement du live est affiché.
