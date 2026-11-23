@@ -101,6 +101,8 @@ function defaultConfig() {
     sideGapRatio: 0.3,          // part avant des côtés ouverte (ce qui tombe par là est perdu)
     shakeIntensity: 5,          // 1 à 10
     shakeDurationMs: 600,
+    shakeGapMs: 1000,           // au moins 1 s entre la fin d'une secousse et la suivante (jamais deux en même temps)
+    shakeCreditMs: 1500,        // ce qui tombe jusqu'à 1,5 s après la secousse revient à celui qui l'a offerte
     coinRainDelayMs: 180,
     // Pouvoirs
     peaceful: false,            // mode paisible : coupe les pouvoirs qui gênent
@@ -108,6 +110,9 @@ function defaultConfig() {
     powerCooldownSeconds: 20,   // PROPOSÉ : délai entre deux pouvoirs sur un même joueur
     // Divers
     liveUsername: '',
+    celebrateLeader: true,      // grande annonce « Félicitations » pour le premier du classement
+    leaderRepeatSeconds: 30,    // si c'est toujours le même premier, on le félicite à nouveau toutes les N s (0 = jamais)
+    leaderVoice: true,          // voix française qui lit « Félicitations à … » (sinon applaudissements seuls)
     showRewards: true,          // liste « cadeau → effet » affichée aux viewers, en rotation
     rewardsSeconds: 4,          // durée d'affichage de chaque ligne
     sounds: true,
@@ -126,7 +131,7 @@ const NUMERIC_LIMITS = {
   startTokens: [0, 100], maxTokens: [1, 200], likesPerRefill: [1, 100000], tokensPerLikeRefill: [0, 100],
   followTokens: [0, 100], coinsOnPlate: [0, 200], ticketsOnPlate: [0, 30], maxObjects: [20, 300],
   pusherStroke: [20, 150], pusherPeriodSeconds: [1, 10], sideGapRatio: [0, 0.8], shakeIntensity: [1, 10],
-  shakeDurationMs: [100, 3000], coinRainDelayMs: [50, 2000], gemEverySeconds: [0, 3600], maxGemsOnPlate: [0, 10],
+  shakeDurationMs: [100, 3000], coinRainDelayMs: [50, 2000], shakeGapMs: [0, 10000], shakeCreditMs: [0, 10000], leaderRepeatSeconds: [0, 600], gemEverySeconds: [0, 3600], maxGemsOnPlate: [0, 10],
   shieldSeconds: [5, 600], powerCooldownSeconds: [0, 300], sfxVolume: [0, 100], musicVolume: [0, 100], rewardsSeconds: [2, 20],
 };
 

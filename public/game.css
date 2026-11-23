@@ -91,3 +91,16 @@ canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block;
 #turn-name .av { width: 1.15em; height: 1.15em; }
 .av-i { position: relative; overflow: hidden; }
 .av-i img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+/* « Félicitations » au premier du classement */
+#celebrate { position: absolute; left: 6%; right: 6%; top: 40%; text-align: center; padding: 0.7em 0.5em 0.8em; border-radius: 1.2em;
+  background: radial-gradient(ellipse at 50% 30%, rgba(90, 0, 20, 0.95), rgba(25, 0, 6, 0.95)); border: 3px solid var(--gold);
+  box-shadow: 0 0 2.5em rgba(255, 211, 77, 0.9), inset 0 0 1.5em rgba(255, 42, 61, 0.5); z-index: 5; }
+#celebrate.show { animation: celIn 0.45s cubic-bezier(.2, 1.6, .4, 1); }
+#celebrate.out { opacity: 0; transform: scale(0.85); transition: opacity 0.3s, transform 0.3s; }
+.cel-title { font-size: 1.55em; color: var(--gold); text-shadow: 0 0 0.4em var(--red), 0 0.08em 0 #3a0008; letter-spacing: 0.03em; }
+#cel-av .av { width: 4.2em; height: 4.2em; font-size: 1em; margin: 0.35em auto 0.2em; border-width: 3px; display: grid; box-shadow: 0 0 1em rgba(255, 211, 77, 0.8); }
+#cel-av .av-i { font-size: 1.6em; width: 2.6em; height: 2.6em; }
+#cel-name { font-size: 1.5em; color: #fff; text-shadow: 0 0 0.4em var(--red); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cel-sub { font-family: system-ui, sans-serif; font-weight: 800; font-size: 0.75em; color: #ffd0d6; margin-top: 0.15em; }
+@keyframes celIn { from { transform: scale(0.3) rotate(-4deg); opacity: 0; } to { transform: none; opacity: 1; } }

@@ -74,6 +74,8 @@
       ['pusherStroke', 'Course du poussoir'], ['pusherPeriodSeconds', 'Aller-retour du poussoir (s)'],
       ['sideGapRatio', 'Ouverture des côtés (0 à 0,8)', 'Ce qui tombe par les côtés est perdu'],
       ['shakeIntensity', 'Intensité des secousses (1 à 10)'], ['shakeDurationMs', 'Durée des secousses (ms)'],
+      ['shakeGapMs', 'Pause entre deux secousses (ms)', 'Jamais deux secousses en même temps'],
+      ['shakeCreditMs', 'Points d\'une secousse : délai après la secousse (ms)', 'Ce qui tombe pendant la secousse et ce délai revient à celui qui l\'a offerte'],
       ['coinRainDelayMs', 'Intervalle pluie de jetons (ms)'],
     ],
     'f-powers': [
@@ -81,7 +83,7 @@
       ['shieldSeconds', 'Durée du bouclier (s)'],
       ['powerCooldownSeconds', 'Délai entre deux pouvoirs (s)', 'Un joueur touché trop tôt subit l\'effet à son tour suivant'],
     ],
-    'f-misc': [['showRewards', 'Afficher « cadeau → effet » aux viewers', 'En rotation en bas de l\'écran du jeu, avec les likes et l\'abonnement'], ['rewardsSeconds', 'Durée de chaque ligne (s)'],['sounds', 'Bruitages'], ['sfxVolume', 'Volume des bruitages (0 à 100)'], ['music', 'Musique d\'ambiance', 'Générée par le jeu : originale et libre de droits'], ['musicVolume', 'Volume de la musique (0 à 100)'], ['blockedNames', 'Pseudos bloqués', 'Séparés par des virgules']],
+    'f-misc': [['celebrateLeader', '« Félicitations » au premier du classement'], ['leaderRepeatSeconds', 'Le refaire toutes les … s s\'il reste premier', '0 = seulement quand il change'], ['leaderVoice', 'Voix française « Félicitations à … »', 'Sinon : applaudissements seuls'],['showRewards', 'Afficher « cadeau → effet » aux viewers', 'En rotation en bas de l\'écran du jeu, avec les likes et l\'abonnement'], ['rewardsSeconds', 'Durée de chaque ligne (s)'],['sounds', 'Bruitages'], ['sfxVolume', 'Volume des bruitages (0 à 100)'], ['music', 'Musique d\'ambiance', 'Générée par le jeu : originale et libre de droits'], ['musicVolume', 'Volume de la musique (0 à 100)'], ['blockedNames', 'Pseudos bloqués', 'Séparés par des virgules']],
   };
 
   function renderSettings(cfg) {

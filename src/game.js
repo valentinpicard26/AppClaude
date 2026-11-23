@@ -27,6 +27,13 @@ class Game {
     this.status = 'running';
     this.pausedAt = null;
     this.turnCounter = 0;
+    // Secousses : jouées l'une après l'autre ; ce qui tombe pendant une secousse revient à celui qui l'a offerte.
+    this.shakeQueue = [];
+    this.nextShakeAt = 0;
+    this.shakeOwner = null; // { playerId, until }
+    // Premier du classement : annonce « Félicitations » quand il change, puis à intervalle régulier.
+    this.leaderId = null;
+    this.leaderAnnouncedAt = 0;
     this.stats = { comments: 0, likes: 0, gifts: 0, diamonds: 0, follows: 0, joins: 0, powers: 0, blocked: 0, donors: {} };
     this.version = 0;
   }
@@ -182,8 +189,7 @@ class Game {
   applyGiftAction(rule, p, now, index) {
     switch (rule.action) {
       case 'shake':
-        this.actions.shake({ by: p.nickname, index });
-        this.fx({ type: 'shake', by: p.nickname });
+        this.queueShake(p, now, false);
         break;
       case 'coinRain':
         this.actions.coinRain(Math.max(1, rule.param || 1), { by: p.nickname });
@@ -274,8 +280,8 @@ class Game {
     let amount = 0;
     switch (pw.kind) {
       case 'jinxShake':
-        if (isAiming) this.turn.jinxShake = (this.turn.jinxShake || 0) + 1; // secousse au moment du lancer
-        else this.actions.shake({ by: byName });
+        if (isAiming) (this.turn.jinxBy ||= []).push(pw.by); // secousse au moment du lancer
+        else if (by) this.queueShake(by, now, true);
         break;
       case 'deviate':
         this.turn.deviate = true;
@@ -352,16 +358,56 @@ class Game {
     this.turn.auto = auto;
     this.turn.endsAt = now + this.config.afterLaunchMs;
     this.actions.launch(slot, { playerId: p.id, nickname: p.nickname });
-    const jinx = this.turn.jinxShake || 0;
-    for (let i = 0; i < jinx; i++) this.actions.shake({ by: null, index: i });
-    this.turn.jinxShake = 0;
+    const jinxBy = this.turn.jinxBy || [];
+    for (const id of jinxBy) { const by = this.players.get(id); if (by) this.queueShake(by, now, true, true); }
+    const jinx = jinxBy.length;
+    this.turn.jinxBy = [];
+    this.runShakes(now); // la secousse au lancer part tout de suite si aucune autre n'est en cours
     this.fx({ type: 'launch', player: p.nickname, slot, slotName: SLOT_NAMES[slot], auto, deviatedFrom, jinx });
     this.touch();
     return true;
   }
 
+  // ---------- Secousses ----------
+  queueShake(p, now, jinx = false, front = false) {
+    const item = { playerId: p.id, nickname: p.nickname, jinx };
+    if (front) this.shakeQueue.unshift(item); else this.shakeQueue.push(item);
+    this.runShakes(now);
+  }
+
+  // Lance la prochaine secousse si la précédente est finie depuis au moins shakeGapMs.
+  runShakes(now) {
+    if (this.status !== 'running') return;
+    while (this.shakeQueue.length && now >= this.nextShakeAt) {
+      const s = this.shakeQueue.shift();
+      const dur = this.config.shakeDurationMs;
+      this.actions.shake({ by: s.nickname });
+      this.shakeOwner = { playerId: s.playerId, until: now + dur + this.config.shakeCreditMs };
+      this.nextShakeAt = now + dur + this.config.shakeGapMs;
+      this.fx({ type: 'shake', by: s.nickname, jinx: s.jinx, queued: this.shakeQueue.length });
+      this.touch();
+    }
+  }
+
+  // ---------- Premier du classement ----------
+  checkLeader(now) {
+    if (!this.config.celebrateLeader) return;
+    const top = [...this.players.values()].filter((p) => p.points > 0)
+      .sort((a, b) => b.points - a.points || a.joinedAt - b.joinedAt)[0];
+    if (!top) { this.leaderId = null; return; }
+    const changed = top.id !== this.leaderId;
+    const repeat = this.config.leaderRepeatSeconds > 0 && now - this.leaderAnnouncedAt >= this.config.leaderRepeatSeconds * 1000;
+    if (changed || repeat) {
+      this.leaderId = top.id;
+      this.leaderAnnouncedAt = now;
+      this.fx({ type: 'leader', player: top.nickname, avatar: top.avatar || '', points: top.points, isNew: changed });
+    }
+  }
+
   update(now) {
     if (this.status !== 'running') return;
+    this.runShakes(now);
+    this.checkLeader(now);
     if (this.turn) {
       if (this.turn.phase === 'aim' && now >= this.turn.deadline) {
         const p = this.players.get(this.turn.playerId);
@@ -408,6 +454,8 @@ class Game {
 
   // Attribution d'un objet tombé : délai de grâce du tour précédent, sinon joueur du tour en cours.
   ownerAt(now) {
+    // Pendant une secousse (et juste après), ce qui tombe revient à celui qui l'a offerte.
+    if (this.shakeOwner && now <= this.shakeOwner.until && this.players.has(this.shakeOwner.playerId)) return this.shakeOwner.playerId;
     if (this.prevTurn && now - this.prevTurn.endedAt <= this.config.graceSeconds * 1000) return this.prevTurn.playerId;
     if (this.turn) return this.turn.playerId;
     return null;
@@ -425,7 +473,7 @@ class Game {
     }
     const ownerId = this.ownerAt(now);
     const p = ownerId ? this.players.get(ownerId) : null;
-    if (p) { p.points += points; this.touch(); }
+    if (p) { p.points += points; this.touch(); this.checkLeader(now); }
     this.fx({ type: 'fall', item: item.key, points, player: p ? p.nickname : null, x: item.x, id: item.id });
     return { playerId: p ? p.id : null, points };
   }
@@ -439,6 +487,9 @@ class Game {
       if (this.turn.endsAt) this.turn.endsAt += d;
     }
     if (this.prevTurn) this.prevTurn.endedAt += d;
+    if (this.shakeOwner) this.shakeOwner.until += d;
+    this.nextShakeAt += d;
+    this.leaderAnnouncedAt += d;
     for (const p of this.players.values()) {
       if (p.shieldUntil > this.pausedAt) p.shieldUntil += d; // le bouclier ne s'use pas pendant la pause
       if (p.lastHitAt) p.lastHitAt += d;

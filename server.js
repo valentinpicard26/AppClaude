@@ -171,6 +171,7 @@ function initPayload() {
     W, D, slotX: SLOT_X,
     items: config.items.map((i) => ({ key: i.key, kind: i.kind, points: i.points, pointsMax: i.pointsMax, color: i.color, label: i.label })),
     sounds: config.sounds, music: config.music, musicVolume: config.musicVolume, sfxVolume: config.sfxVolume,
+    leaderVoice: config.leaderVoice,
     showRewards: config.showRewards, rewardsSeconds: config.rewardsSeconds, rewards: rewardsList(config),
   };
 }

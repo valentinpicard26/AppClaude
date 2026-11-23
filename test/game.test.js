@@ -82,10 +82,47 @@ test('les commandes 1, 2, 3 choisissent gauche, centre, droite', () => {
   assert.deepEqual(calls.launch.map((l) => l.slot), [2, 1, 0]);
 });
 
-test('Scénario 2 : B envoie 3 roses → la machine tremble 3 fois', () => {
+test('Scénario 2 : B envoie 3 roses → la machine tremble 3 fois, l\'une après l\'autre (1 s d\'écart au moins)', () => {
   const { g, calls } = setup();
   g.handleEvent({ type: 'gift', ...B, giftName: 'Rose', diamondCount: 1, repeatCount: 3 }, 0);
-  assert.equal(calls.shake, 3);
+  assert.equal(calls.shake, 1); // jamais deux secousses en même temps
+  const gap = g.config.shakeDurationMs + g.config.shakeGapMs;
+  g.update(gap - 1); assert.equal(calls.shake, 1);
+  g.update(gap); assert.equal(calls.shake, 2);
+  g.update(2 * gap); assert.equal(calls.shake, 3);
+  g.update(10 * gap); assert.equal(calls.shake, 3);
+});
+
+test('ce qui tombe pendant une secousse revient à celui qui l\'a offerte', () => {
+  const { g } = setup();
+  g.handleEvent({ type: 'join', ...A }, 0);
+  g.update(0); // A joue
+  g.handleEvent({ type: 'gift', ...B, giftName: 'Rose', diamondCount: 1, repeatCount: 1 }, 1000);
+  g.onFall({ key: 'coin' }, 1500);
+  g.onFall({ key: 'ticket40' }, 1000 + g.config.shakeDurationMs + g.config.shakeCreditMs);
+  assert.equal(g.players.get('b').points, 50);
+  assert.equal(g.players.get('a').points, 0);
+  // Après la fenêtre de la secousse : retour au joueur du tour
+  g.onFall({ key: 'coin' }, 1000 + g.config.shakeDurationMs + g.config.shakeCreditMs + 1);
+  assert.equal(g.players.get('a').points, 10);
+});
+
+test('premier du classement : « Félicitations » quand il change, puis toutes les 30 s s\'il reste premier', () => {
+  const fx = [];
+  const { g } = setup();
+  g.onFx = (e) => { if (e.type === 'leader') fx.push(e); };
+  g.handleEvent({ type: 'join', ...A }, 0);
+  g.handleEvent({ type: 'join', ...B }, 0);
+  g.update(0);
+  g.update(5000);
+  assert.equal(fx.length, 0); // personne n'a de points
+  g.onFall({ key: 'coin' }, 6000); // A marque
+  assert.deepEqual(fx.map((e) => [e.player, e.isNew]), [['Alice', true]]);
+  g.update(20000); assert.equal(fx.length, 1);
+  g.update(36000); assert.deepEqual(fx.map((e) => [e.player, e.isNew]), [['Alice', true], ['Alice', false]]);
+  g.players.get('b').points = 500; g.update(37000); // B passe devant
+  assert.deepEqual(fx.at(-1).player, 'Bob');
+  assert.equal(fx.at(-1).isNew, true);
 });
 
 test('Scénario 3 : B fait apparaître le coffre, C le fait tomber → C gagne 2 000 à 5 000, B rien', () => {
@@ -374,6 +411,7 @@ test('liaisons par défaut, puis le vrai identifiant TikTok remplace le provisoi
   const g = new Game(defaultConfig(), { actions: { shake: () => { calls.shake++; }, spawn: (k) => calls.spawn.push(k) } });
   g.handleEvent({ type: 'gift', ...B, giftId: '5655', giftName: 'Rose', diamondCount: 1 }, 0);
   g.handleEvent({ type: 'gift', ...B, giftId: '9999', giftName: 'Ice Cream Cone', diamondCount: 1 }, 0);
+  g.update(5000);
   assert.equal(calls.shake, 2);
   g.handleEvent({ type: 'gift', ...B, giftId: '5269', giftName: 'Galaxy', diamondCount: 1000 }, 0);
   assert.deepEqual(calls.spawn, ['coffre']);
@@ -402,6 +440,7 @@ test('en live : chaque cadeau TikTok réel déclenche l\'effet qui lui est lié,
   const rose = (end) => ({ user: viewer('2', 'bob'), giftId: '5655', repeatCount: 3, repeatEnd: end, gift: { id: '5655', name: 'Rose', diamondCount: 1, type: 1 } });
   assert.equal(mapEvent('gift', rose(0)), null);
   g.handleEvent(mapEvent('gift', rose(1)), 10);
+  for (let t = 10; t <= 10000; t += 100) g.update(t);
   assert.equal(calls.shake, 3);
   // Cadeau reconnu par son nom tant que son vrai identifiant n'est pas connu
   g.handleEvent(mapEvent('gift', { user: viewer('2', 'bob'), giftId: '7168', repeatCount: 1, repeatEnd: 1, gift: { id: '7168', name: 'Money Gun', diamondCount: 500, type: 2 } }), 20);

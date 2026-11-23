@@ -71,6 +71,7 @@
   socket.on('init', (d) => {
     W = d.W; D = d.D; sounds = d.sounds;
     window.TPAudio.setOptions({ sounds: d.sounds, music: d.music, musicVolume: d.musicVolume, sfxVolume: d.sfxVolume });
+    leaderVoice = d.leaderVoice !== false;
     rewards = { show: d.showRewards !== false, seconds: d.rewardsSeconds || 4, list: d.rewards || [] };
     items = {}; for (const it of d.items) items[it.key] = it;
     buildSprites();
@@ -234,7 +235,11 @@
       case 'slotBlocked': tick(`🔒 Fente ${state?.commands?.[e.slot] ?? e.slot + 1} bloquée : @${e.player}, choisis une autre fente !`); sfx('power'); break;
       case 'pending': tick(`⏳ Pouvoir de @${e.by} en attente pour ${e.target ? '@' + e.target : 'le prochain joueur'}`); break;
       case 'peaceful': tick(`🕊️ Mode paisible : pouvoir de @${e.by} désactivé`); break;
-      case 'shake': shakeUntil = performance.now() + 600; tick(`🌹 Secousse offerte par @${e.by}`); sfx('shake'); break;
+      case 'shake':
+        shakeUntil = performance.now() + 600;
+        tick(e.jinx ? `🌪️ Secousse de @${e.by} pendant le lancer` : `🌹 Secousse offerte par @${e.by} · ce qui tombe est pour lui !`);
+        sfx('shake'); break;
+      case 'leader': celebrate(e); break;
       case 'spawn':
         announce(e.by ? `🎁 @${e.by} fait apparaître : ${items[e.item]?.label || e.item}&nbsp;!` : `💎 Un ${items[e.item]?.label || e.item} apparaît sur le plateau&nbsp;!`);
         sfx('big'); break;
@@ -253,6 +258,34 @@
       default: break;
     }
   }
+  // ---------- « Félicitations » au premier du classement ----------
+  let leaderVoice = true;
+  let celTimer = null;
+  function celebrate(e) {
+    const box = $('celebrate');
+    $('cel-av').innerHTML = avatar({ nickname: e.player, avatar: e.avatar });
+    $('cel-name').textContent = '@' + e.player;
+    $('cel-sub').textContent = `${e.isNew ? 'prend la tête' : 'est toujours en tête'} · ${fmt(e.points)} pts`;
+    box.classList.remove('hidden', 'out');
+    void box.offsetWidth; box.classList.add('show');
+    confetti(140);
+    sfx('applause');
+    if (leaderVoice) {
+      const spoken = String(e.player).replace(/[_.\-]+/g, ' ').replace(/[^\p{L}\p{N} ]/gu, '').trim();
+      window.TPAudio.say(`Félicitations ${spoken || ''} !`);
+    }
+    clearTimeout(celTimer);
+    celTimer = setTimeout(() => { box.classList.add('out'); setTimeout(() => box.classList.add('hidden'), 350); }, 1600);
+  }
+  function confetti(n) {
+    const colors = ['#ffd34d', '#ff4d5e', '#4dc8ff', '#7dff7a', '#ff7ad9', '#ffffff'];
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2, v = 6 + Math.random() * 10;
+      parts.push({ x: IW / 2 + (Math.random() - 0.5) * 200, y: IH * 0.42, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+        t0: performance.now(), life: 1400 + Math.random() * 900, c: colors[i % colors.length], conf: true, r: Math.random() * 6 });
+    }
+  }
+
   function fmt(n) { return Number(n).toLocaleString('fr-FR'); }
   function burst(x, y, n) {
     for (let i = 0; i < n; i++) {
@@ -554,7 +587,15 @@
     for (let i = parts.length - 1; i >= 0; i--) {
       const p = parts[i]; const t = (now - p.t0) / p.life;
       if (t >= 1) { parts.splice(i, 1); continue; }
-      p.x += p.vx; p.y += p.vy; p.vy += 0.25;
+      p.x += p.vx; p.y += p.vy; p.vy += p.conf ? 0.32 : 0.25;
+      if (p.conf) {
+        // Confettis : petits rectangles qui tournent en tombant
+        p.vx *= 0.985; p.r += 0.2;
+        ctx.save(); ctx.globalAlpha = t > 0.7 ? (1 - t) / 0.3 : 1; ctx.fillStyle = p.c;
+        ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillRect(-7, -3.5 * Math.abs(Math.cos(p.r * 1.3)) - 1, 14, 7 * Math.abs(Math.cos(p.r * 1.3)) + 2);
+        ctx.restore();
+        continue;
+      }
       ctx.globalAlpha = 1 - t; ctx.fillStyle = p.c; ctx.fillRect(p.x - 3, p.y - 3, 6, 6);
     }
     ctx.globalAlpha = 1;
