@@ -262,9 +262,11 @@
   }
   // Photo de profil ronde (ou initiale sur fond coloré si TikTok n'en fournit pas).
   function avatar(p) {
-    if (p.avatar) return `<img class="av" src="${esc(p.avatar)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">`;
+    const initial = esc((p.nickname || '?').trim()[0]?.toUpperCase() || '?');
     const hue = [...String(p.nickname || '')].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 0);
-    return `<span class="av av-i" style="background:hsl(${hue} 65% 45%)">${esc((p.nickname || '?')[0].toUpperCase())}</span>`;
+    // L'initiale est toujours là ; la photo TikTok, si elle charge, vient la recouvrir.
+    const img = p.avatar ? `<img src="${esc(p.avatar)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : '';
+    return `<span class="av av-i" style="background:hsl(${hue} 65% 45%)">${initial}${img}</span>`;
   }
   function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   function tick(text) {
@@ -344,7 +346,7 @@
     $('idle-cmds').textContent = `${state.commands[0]}, ${state.commands[1]} ou ${state.commands[2]}`;
     $('paused').classList.toggle('hidden', state.status !== 'paused');
     $('board-list').innerHTML = state.leaderboard.length
-      ? state.leaderboard.map((p, i) => `<li><span class="n">${i + 1}. ${avatar(p)}${esc(p.nickname)}</span><span class="v">${fmt(p.points)}</span></li>`).join('')
+      ? state.leaderboard.map((p, i) => `<li><span class="n"><span class="t">${i + 1}. ${esc(p.nickname)}</span></span><span class="v">${fmt(p.points)}</span></li>`).join('')
       : '<li><span class="n">Pas encore de points</span></li>';
     const roster = state.roster || [];
     let pos = 0;
@@ -352,7 +354,7 @@
       ? roster.map((p) => {
         const mark = p.current ? '▶ ' : p.empty ? '' : `${++pos}. `;
         const cls = [p.current ? 'cur' : '', p.boosted ? 'boost' : '', p.empty ? 'empty' : ''].join(' ');
-        return `<li class="${cls}"><span class="n">${mark}${avatar(p)}${p.shield ? '🛡️' : ''}${esc(p.nickname)}</span><span class="v">🪙 ${p.tokens}</span></li>`;
+        return `<li class="${cls}"><span class="n"><span class="m">${mark}</span>${avatar(p)}<span class="t">${p.shield ? '🛡️' : ''}${esc(p.nickname)}</span></span><span class="v">🪙 ${p.tokens}</span></li>`;
       }).join('')
       : '<li><span class="n">Personne</span></li>';
     $('queue-n').textContent = state.queueLength + (state.turn ? 1 : 0) > roster.length ? `(${state.queueLength + (state.turn ? 1 : 0)})` : '';
