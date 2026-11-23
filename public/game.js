@@ -301,6 +301,11 @@
     const img = p.avatar ? `<img src="${esc(p.avatar)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : '';
     return `<span class="av av-i" style="background:hsl(${hue} 65% 45%)">${initial}${img}</span>`;
   }
+  // Rang du classement : médaillon or, argent, bronze pour les 3 premiers, puis le numéro.
+  function rank(i) {
+    const cls = ['gold', 'silver', 'bronze'][i];
+    return cls ? `<span class="medal ${cls}">${i + 1}</span>` : `<span class="m">${i + 1}.</span>`;
+  }
   function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   function tick(text) {
     const box = $('ticker');
@@ -379,7 +384,7 @@
     $('idle-cmds').textContent = `${state.commands[0]}, ${state.commands[1]} ou ${state.commands[2]}`;
     $('paused').classList.toggle('hidden', state.status !== 'paused');
     $('board-list').innerHTML = state.leaderboard.length
-      ? state.leaderboard.map((p, i) => `<li><span class="n"><span class="t">${i + 1}. ${esc(p.nickname)}</span></span><span class="v">${fmt(p.points)}</span></li>`).join('')
+      ? state.leaderboard.map((p, i) => `<li><span class="n">${rank(i)}${avatar(p)}<span class="t">${esc(p.nickname)}</span></span><span class="v">${fmt(p.points)}</span></li>`).join('')
       : '<li><span class="n">Pas encore de points</span></li>';
     const roster = state.roster || [];
     let pos = 0;
