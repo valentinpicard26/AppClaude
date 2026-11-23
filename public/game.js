@@ -284,7 +284,7 @@
     const base = [];
     if (state) {
       base.push({ html: `<span class="rw-gift">❤️ ${state.likesPerRefill} likes</span><span class="rw-arrow">→</span><span class="rw-eff">🪙 ${state.tokensPerLikeRefill} jetons</span>` });
-      base.push({ html: '<span class="rw-gift">➕ Abonne-toi</span><span class="rw-arrow">→</span><span class="rw-eff">🪙 ${state.followTokens} jetons</span>' });
+      base.push({ html: `<span class="rw-gift">➕ Abonne-toi</span><span class="rw-arrow">→</span><span class="rw-eff">🪙 ${state.followTokens} jetons</span>` });
       if (state.peaceful) base.push({ html: '<span class="rw-eff">🕊️ Mode paisible : aucun pouvoir contre les joueurs</span>' });
     }
     if (!rewards.show) return base;
@@ -292,7 +292,7 @@
       const gImg = r.image ? `<img class="rw-img" src="${esc(r.image)}" alt="" referrerpolicy="no-referrer">` : '🎁';
       const iImg = r.item && RW_ITEM_IMG[r.item] ? `<img class="rw-img" src="assets/${RW_ITEM_IMG[r.item]}" alt="">` : r.icon;
       const cost = r.cost ? ` <small>${esc(r.cost)}</small>` : '';
-      return { html: `<span class="rw-gift">${gImg} ${esc(r.gift === 'Cadeau' && r.cost ? 'Cadeau' : r.gift)}${cost}</span><span class="rw-arrow">→</span><span class="rw-eff">${iImg} ${esc(r.text)}</span>` };
+      return { html: `<span class="rw-gift">${gImg} ${esc(r.gift)}${cost}</span><span class="rw-arrow">→</span><span class="rw-eff">${iImg} ${esc(r.text)}</span>` };
     });
     return [...base, ...gifts];
   }

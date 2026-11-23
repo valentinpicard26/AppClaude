@@ -32,7 +32,7 @@ canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block;
 #turn-count { position: absolute; right: -0.4em; top: -0.6em; width: 1.8em; height: 1.8em; border-radius: 50%; background: var(--red); border: 2px solid var(--gold); display: grid; place-items: center; font-size: 0.9em; }
 #turn.urgent #turn-count { animation: pulse 0.5s infinite alternate; }
 
-#ticker { position: absolute; left: 4%; right: 4%; top: 36.6%; text-align: center; font-family: system-ui, sans-serif; font-weight: 800; font-size: 0.68em; }
+#ticker { position: absolute; left: 4%; right: 4%; top: 45.4%; text-align: center; font-family: system-ui, sans-serif; font-weight: 800; font-size: 0.68em; }
 .tick { display: inline-block; margin: 0.1em auto; padding: 0.15em 0.7em; border-radius: 1em; background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 211, 77, 0.5); animation: tickIn 0.25s ease-out; transition: opacity 0.5s; }
 .tick.out { opacity: 0; }
 
@@ -41,7 +41,7 @@ canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block;
 .idle-sub { font-family: system-ui, sans-serif; font-weight: 700; font-size: 0.8em; line-height: 1.35; margin-top: 0.3em; }
 #paused { position: absolute; left: 0; right: 0; top: 60%; text-align: center; font-size: 3em; color: var(--gold); text-shadow: 0 0 0.3em #000, 0 0 0.6em var(--red); }
 
-#announce { position: absolute; left: 0; right: 0; top: 44%; text-align: center; }
+#announce { position: absolute; left: 0; right: 0; top: 50.5%; text-align: center; }
 .ann { display: inline-block; padding: 0.3em 0.9em; border-radius: 0.8em; font-size: 1.05em; background: linear-gradient(180deg, #ffe680, #ffb300); color: #3a0008; border: 2px solid #fff; box-shadow: 0 0 1.2em rgba(255, 211, 77, 0.9); animation: annIn 0.4s cubic-bezier(.2, 1.6, .4, 1); }
 .ann.red { background: linear-gradient(180deg, #ff5a68, #c4001a); color: #fff; }
 .ann.shield { background: linear-gradient(180deg, #fff6c8, #ffd34d); color: #3a2a00; box-shadow: 0 0 1.6em rgba(255, 240, 160, 1); }
@@ -55,7 +55,7 @@ canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block;
 .panel li .v { color: var(--gold); }
 .panel li.boost .n::before { content: "⚡"; }
 #board li:first-child .n { color: var(--gold); }
-#rewards { flex-basis: 100%; min-height: 2.4em; display: flex; align-items: center; justify-content: center; text-align: center; background: rgba(20,0,6,0.82); border: 1.5px solid rgba(255,211,77,0.7); border-radius: 0.8em; padding: 0.2em 0.5em; font-family: system-ui, sans-serif; font-weight: 800; font-size: 0.66em; color: #fff; overflow: hidden; }
+#rewards { position: absolute; left: 3%; right: 3%; top: 38.6%; min-height: 2.6em; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: rgba(20,0,6,0.82); border: 1.5px solid rgba(255,211,77,0.7); border-radius: 0.8em; padding: 0.2em 0.5em; font-family: system-ui, sans-serif; font-weight: 800; font-size: 0.66em; color: #fff; overflow: hidden; }
 #rw-line { display: flex; align-items: center; justify-content: center; gap: 0.45em; animation: rwIn 0.45s ease-out; }
 #rw-line.out { opacity: 0; transform: translateY(-0.4em); transition: opacity 0.3s, transform 0.3s; }
 .rw-gift { display: flex; align-items: center; gap: 0.3em; color: var(--gold); white-space: nowrap; }
@@ -77,3 +77,5 @@ canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block;
 #queue li.cur .n { color: var(--gold); }
 #queue li.empty { opacity: 0.6; }
 .ann.tokens { background: linear-gradient(180deg, #fff1a6, #ffc21a); color: #3a2000; }
+.rw-title { font-size: 0.72em; color: var(--gold); letter-spacing: 0.04em; opacity: 0.85; margin-bottom: 0.05em; }
+#rewards { font-size: 0.74em; box-shadow: 0 0 0.8em rgba(255, 42, 61, 0.45); }
