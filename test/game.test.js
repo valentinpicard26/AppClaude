@@ -130,7 +130,7 @@ test('Scénario 6 : A ne répond pas en 10 s → jeton dans une fente au hasard,
   assert.equal(g.turn.playerId, 'b');
 });
 
-test('Scénario 9 : un ticket de 200 tombe 2 s après la fin du tour de A → 200 points pour A', () => {
+test('Scénario 9 : un ticket de 100 (le plus gros) tombe 2 s après la fin du tour de A → 100 points pour A', () => {
   const { g } = setup();
   g.handleEvent({ type: 'join', ...A }, 0);
   g.handleEvent({ type: 'join', ...B }, 0);
@@ -139,8 +139,8 @@ test('Scénario 9 : un ticket de 200 tombe 2 s après la fin du tour de A → 20
   const end = 1000 + g.config.afterLaunchMs;
   g.update(end);
   assert.equal(g.turn.playerId, 'b');
-  g.onFall({ key: 'ticket200' }, end + 2000);
-  assert.equal(g.players.get('a').points, 200);
+  g.onFall({ key: 'ticket100' }, end + 2000);
+  assert.equal(g.players.get('a').points, 100);
   assert.equal(g.players.get('b').points, 0);
   // Après le délai de grâce, c'est le joueur du tour en cours qui gagne
   g.onFall({ key: 'coin' }, end + 3500);
@@ -275,4 +275,28 @@ test('stress : plusieurs viewers écrivent en même temps, un seul jeton par tou
     for (const p of g.players.values()) assert.ok(p.tokens >= 0 && p.tokens <= 20);
   }
   assert.ok(turns > 100);
+});
+
+test('un cadeau précis (identifiant TikTok) passe avant le nom et la valeur', () => {
+  const { g, calls } = setup({ giftRules: [
+    { name: 'Galaxy', giftId: '11046', action: 'spawn', param: 'coffre' },
+    { name: 'Rose', action: 'shake', param: 1 },
+    { name: '', minDiamonds: 1, maxDiamonds: 99999, action: 'coinRain', param: 2 },
+  ] });
+  g.handleEvent({ type: 'gift', ...B, giftId: '11046', giftName: 'Autre nom', diamondCount: 1000 }, 0);
+  g.handleEvent({ type: 'gift', ...B, giftId: '5655', giftName: 'Rose', diamondCount: 1 }, 0);
+  g.handleEvent({ type: 'gift', ...B, giftId: '999', giftName: 'Inconnu', diamondCount: 50 }, 0);
+  assert.deepEqual(calls.spawn.map((s) => s.key), ['coffre']);
+  assert.equal(calls.shake, 1);
+  assert.deepEqual(calls.coinRain, [2]);
+});
+
+test('catalogue des cadeaux : fusion par identifiant, tri par valeur, images https seulement', () => {
+  const { mergeCatalog } = require('../src/config');
+  const c = mergeCatalog([{ id: '1', name: 'Rose', diamonds: 1, image: 'https://x/r.png' }], [
+    { id: '2', name: 'Lion', diamonds: 29999, image: 'javascript:alert(1)' }, { id: '1', name: 'Rose', diamonds: 1 }, { id: '3', name: 'GG', diamonds: 1 },
+  ]);
+  assert.deepEqual(c.map((g) => g.id), ['3', '1', '2']);
+  assert.equal(c.find((g) => g.id === '1').image, 'https://x/r.png');
+  assert.equal(c.find((g) => g.id === '2').image, '');
 });

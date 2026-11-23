@@ -36,7 +36,7 @@ Ces règles viennent directement du créateur.
 | Objet | Points | Comment il arrive sur le plateau |
 | --- | --- | --- |
 | Jeton | 10 (exemple) | Lancé par les joueurs |
-| Tickets de points (10 couleurs) | 20, 40, 60, 80, 100, 120, 140, 160, 180, 200 | Présents sur le plateau |
+| Tickets de points (5 couleurs) | 20, 40, 60, 80, 100 (décision du créateur : pas de ticket au-delà de 100) | Présents sur le plateau |
 | Diamant | 500 | Haute récompense d'un viewer |
 | Rubis | 800 | Haute récompense d'un viewer |
 | Émeraude | 1 000 | Haute récompense d'un viewer |
@@ -216,7 +216,7 @@ Le jeu reproduit un vrai pousse-pièces de fête foraine, vu de face comme sur l
 6. A ne répond pas en 10 secondes : son jeton part dans une fente au hasard, puis le tour passe au suivant.
 7. A a un bouclier actif et B envoie un pouvoir qui gêne : le pouvoir est bloqué.
 8. B vole des jetons à A : A garde au moins 1 jeton.
-9. Un ticket de 200 points tombe 2 secondes après la fin du tour de A : les 200 points vont à A.
+9. Un ticket de 100 points (le plus gros ticket) tombe 2 secondes après la fin du tour de A : les 100 points vont à A.
 
 ## Sources
 

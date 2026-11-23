@@ -54,6 +54,8 @@ class TikTokSource {
       const ext = d.extendedGiftInfo || {};
       emit({
         type: 'gift', ...user(d),
+        giftId: d.giftId !== undefined ? String(d.giftId) : '',
+        giftImage: d.giftDetails?.giftImage?.giftPictureUrl || ext.image?.url_list?.[0] || '',
         giftName: d.giftDetails?.giftName || ext.name || d.giftName || '',
         diamondCount: d.giftDetails?.diamondCount ?? ext.diamond_count ?? d.diamondCount ?? 0,
         repeatCount: d.repeatCount || 1,
@@ -72,6 +74,27 @@ class TikTokSource {
       this.setStatus({ state: 'error', error: String(e?.message || e).slice(0, 300) });
       throw e;
     }
+  }
+
+  // Liste des cadeaux disponibles. Avec un live lié, on utilise la connexion ; sinon on tente de retrouver
+  // la salle du créateur à partir de son pseudo (peut échouer s'il n'est pas en direct).
+  async fetchGifts(username, { signApiKey } = {}) {
+    const { TikTokLiveConnection } = require('tiktok-live-connector');
+    let conn = this.conn;
+    if (!conn) {
+      username = String(username || '').replace(/^@/, '').trim();
+      if (!username) throw new Error('Pseudo TikTok manquant (onglet Live)');
+      conn = new TikTokLiveConnection(username, signApiKey ? { signApiKey } : {});
+      await conn.fetchRoomId();
+    }
+    const raw = (conn.availableGifts && conn.availableGifts.length ? conn.availableGifts : await conn.fetchAvailableGifts()) || [];
+    const list = Array.isArray(raw) ? raw : (raw.gifts || []);
+    return list.map((g) => ({
+      id: g.id ?? g.giftId,
+      name: g.name || g.giftName || g.describe || '',
+      diamonds: g.diamond_count ?? g.diamondCount ?? 0,
+      image: g.image?.url_list?.[0] || g.icon?.url_list?.[0] || g.image?.urlList?.[0] || '',
+    }));
   }
 
   async disconnect() {

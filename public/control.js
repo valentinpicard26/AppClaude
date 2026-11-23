@@ -132,8 +132,11 @@
   let rulesDraft = [];
   function renderRules() {
     const items = st.config.items;
-    $('rules').innerHTML = rulesDraft.map((r) => ruleHtml(r, items)).join('');
-    $('rules').querySelectorAll('.rule').forEach((el, i) => {
+    // Les règles liées à un cadeau précis se règlent dans le catalogue ; ici, les autres.
+    const idx = rulesDraft.map((r, i) => (r.giftId ? -1 : i)).filter((i) => i >= 0);
+    $('rules').innerHTML = idx.map((i) => ruleHtml(rulesDraft[i], items)).join('');
+    $('rules').querySelectorAll('.rule').forEach((el, j) => {
+      const i = idx[j];
       el.querySelectorAll('[data-r]').forEach((inp) => {
         inp.onchange = () => {
           const k = inp.dataset.r;
@@ -144,8 +147,82 @@
       el.querySelector('[data-del]').onclick = () => { rulesDraft.splice(i, 1); renderRules(); };
     });
   }
+  // ---------- Catalogue des cadeaux ----------
+  const DEFAULT_PARAM = { spawn: 'diamant', coinRain: 5, loseTokens: 2, steal: 3, queueSkip: 3 };
+  function ruleFor(diamonds, name) {
+    const n = String(name || '').trim().toLowerCase();
+    return rulesDraft.find((r) => !r.giftId && r.name && r.name.trim().toLowerCase() === n)
+      || rulesDraft.find((r) => !r.giftId && !r.name && diamonds >= r.minDiamonds && diamonds <= r.maxDiamonds);
+  }
+  function paramCtl(r, items) {
+    if (r.action === 'spawn') return `<select data-g="param">${items.filter((i) => i.kind !== 'coin').map((i) => `<option value="${i.key}" ${r.param === i.key ? 'selected' : ''}>${esc(i.label)}</option>`).join('')}</select>`;
+    if (['coinRain', 'loseTokens', 'steal', 'queueSkip'].includes(r.action)) return `<input type="number" min="0" data-g="param" value="${Number(r.param) || 0}" title="Nombre">`;
+    return '';
+  }
+  function renderCatalog() {
+    const cat = st.config.giftCatalog || [];
+    const q = $('gifts-search').value.trim().toLowerCase();
+    const onlySet = $('gifts-filter').value === 'set';
+    const items = st.config.items;
+    const rows = cat.filter((g) => (!q || g.name.toLowerCase().includes(q)) && (!onlySet || rulesDraft.some((r) => r.giftId === g.id))).slice(0, 400);
+    if (!cat.length) { $('catalog').innerHTML = '<p class="muted small" style="padding:8px">Catalogue vide : charge-le depuis TikTok, ou ajoute un cadeau à la main.</p>'; return; }
+    $('catalog').innerHTML = rows.map((g) => {
+      const r = rulesDraft.find((x) => x.giftId === g.id);
+      const def = r ? null : ruleFor(g.diamonds, g.name);
+      return `<div class="gift ${r ? 'set' : ''}" data-id="${esc(g.id)}">
+        ${g.image ? `<img src="${esc(g.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="noimg">🎁</span>'}
+        <div class="gname">${esc(g.name)}<small>💎 ${g.diamonds}</small></div>
+        <div class="gctl"><select data-g="action"><option value="">${def ? 'Par valeur : ' + esc(ACTIONS[def.action]) : '— Aucun effet —'}</option>
+          ${Object.entries(ACTIONS).map(([k, v]) => `<option value="${k}" ${r && r.action === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+          ${r ? paramCtl(r, items) : ''}</div></div>`;
+    }).join('') + (cat.length > rows.length && !q && !onlySet ? '<p class="muted small" style="padding:8px">Utilise la recherche pour voir les autres cadeaux.</p>' : '');
+    $('catalog').querySelectorAll('.gift').forEach((el) => {
+      const g = cat.find((x) => x.id === el.dataset.id);
+      el.querySelector('[data-g=action]').onchange = (e) => {
+        const i = rulesDraft.findIndex((x) => x.giftId === g.id);
+        if (!e.target.value) { if (i >= 0) rulesDraft.splice(i, 1); }
+        else {
+          const rule = { name: g.name, giftId: g.id, minDiamonds: 0, maxDiamonds: 0, action: e.target.value, param: DEFAULT_PARAM[e.target.value] ?? 1 };
+          if (i >= 0) rulesDraft[i] = rule; else rulesDraft.push(rule);
+        }
+        renderCatalog();
+        toast('Pense à enregistrer');
+      };
+      const p = el.querySelector('[data-g=param]');
+      if (p) p.onchange = () => { const r = rulesDraft.find((x) => x.giftId === g.id); r.param = p.type === 'number' ? Number(p.value) : p.value; };
+    });
+  }
+  $('gifts-search').oninput = renderCatalog;
+  $('gifts-filter').onchange = renderCatalog;
+  $('gifts-fetch').onclick = async () => {
+    toast('Chargement des cadeaux…');
+    const r = await act('gifts:fetch', { username: $('live-user').value });
+    if (r.ok) { toast(`${r.count} cadeaux chargés ✅`); catalogKey = ''; }
+  };
+  $('man-add').onclick = async () => {
+    const name = $('man-name').value.trim(); const diamonds = Number($('man-dia').value) || 0;
+    if (!name) return toast('Indique le nom du cadeau');
+    const cat = (st.config.giftCatalog || []).filter((g) => g.name.toLowerCase() !== name.toLowerCase());
+    const r = await act('config:update', { giftCatalog: [...cat, { id: 'manuel-' + name.toLowerCase().replace(/\s+/g, '-'), name, diamonds, image: '' }] }, 'Cadeau ajouté');
+    if (r.ok) { $('man-name').value = ''; $('man-dia').value = ''; catalogKey = ''; }
+  };
+  let catalogKey = '';
+
   $('add-rule').onclick = () => { rulesDraft.push({ name: '', minDiamonds: 0, maxDiamonds: 0, action: 'shake', param: 1 }); renderRules(); };
   $('save-rules').onclick = async () => { const r = await act('config:update', { giftRules: rulesDraft }, 'Cadeaux enregistrés ✅'); if (r.ok) rulesLoaded = false; };
+
+  // ---------- Copie des réglages sur le téléphone ----------
+  // Render gratuit efface les fichiers à chaque redémarrage : on garde une copie locale et on propose de la restaurer.
+  const BACKUP = 'tp-config-backup';
+  function readBackup() { try { return JSON.parse(localStorage.getItem(BACKUP) || 'null'); } catch { return null; } }
+  function writeBackup(cfg) { try { localStorage.setItem(BACKUP, JSON.stringify(cfg)); } catch { /* */ } }
+  let restoreDismissed = false;
+  $('restore-yes').onclick = async () => {
+    const b = readBackup(); if (!b) return;
+    const r = await act('config:update', b, 'Réglages restaurés ✅');
+    if (r.ok) { settingsLoaded = false; rulesLoaded = false; catalogKey = ''; $('restore').classList.add('hidden'); }
+  };
+  $('restore-no').onclick = () => { restoreDismissed = true; $('restore').classList.add('hidden'); };
 
   // ---------- Simulateur ----------
   document.querySelectorAll('[data-add]').forEach((b) => { b.onclick = () => act('sim:addViewers', Number(b.dataset.add), 'Viewer(s) ajouté(s)'); });
@@ -181,7 +258,11 @@
     const r = await act('config:update', { peaceful: e.target.checked }, e.target.checked ? '🕊️ Mode paisible activé' : 'Pouvoirs réactivés');
     if (r.ok) settingsLoaded = false;
   };
-  $('send-gift').onclick = () => simEvent({ type: 'gift', giftName: $('gift-name').value, diamondCount: Number($('gift-diamonds').value), repeatCount: Number($('gift-count').value) || 1 });
+  $('send-gift').onclick = () => {
+    const name = $('gift-name').value.trim();
+    const g = (st?.config.giftCatalog || []).find((x) => x.name.toLowerCase() === name.toLowerCase());
+    simEvent({ type: 'gift', giftName: name, giftId: g ? g.id : '', diamondCount: g ? g.diamonds : Number($('gift-diamonds').value), repeatCount: Number($('gift-count').value) || 1 });
+  };
 
   // ---------- Mise à jour de l'état ----------
   const LIVE_STATES = { disconnected: 'non lié', connecting: 'connexion…', connected: 'connecté ✅', error: 'erreur ❌', ended: 'live terminé' };
@@ -208,6 +289,10 @@
     const opts = s.players.map((p) => `<option value="${esc(p.id)}">${esc(p.nickname)} (🪙${p.tokens})</option>`).join('');
     if (sel.dataset.h !== opts) { sel.innerHTML = opts; sel.dataset.h = opts; if (cur) sel.value = cur; }
     if (!settingsLoaded) { renderSettings(s.config); settingsLoaded = true; }
-    if (!rulesLoaded) { rulesDraft = JSON.parse(JSON.stringify(s.config.giftRules)); renderRules(); rulesLoaded = true; }
+    if (!rulesLoaded) { rulesDraft = JSON.parse(JSON.stringify(s.config.giftRules)); renderRules(); rulesLoaded = true; catalogKey = ''; }
+    const ck = (s.config.giftCatalog || []).length + ':' + (s.config.giftCatalog || []).map((g) => g.id).join(',').length;
+    if (ck !== catalogKey) { catalogKey = ck; renderCatalog(); $('gift-names').innerHTML = (s.config.giftCatalog || []).map((g) => `<option value="${esc(g.name)}">💎 ${g.diamonds}</option>`).join(''); }
+    if (s.configCustomized) { writeBackup(s.config); $('restore').classList.add('hidden'); }
+    else $('restore').classList.toggle('hidden', restoreDismissed || !readBackup());
   });
 })();

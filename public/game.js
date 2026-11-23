@@ -20,9 +20,17 @@
 
   // ---------- Images ----------
   const img = {};
-  for (const n of ['machine.jpg', 'pusher.png', 'coin.png', 'ticket_20.png', 'ticket_40.png']) {
+  for (const n of ['machine.jpg', 'pusher.png', 'coin.png']) {
     const i = new Image(); i.src = 'assets/' + n; img[n] = i;
   }
+  // Images des objets, par clé d'objet (indépendant des points, qui sont réglables)
+  const ITEM_FILES = {
+    ticket20: 'ticket_20.png', ticket40: 'ticket_40.png', ticket60: 'ticket_60.png', ticket80: 'ticket_80.png', ticket100: 'ticket_100.png',
+    diamant: 'diamant.png', rubis: 'rubis.png', emeraude: 'emeraude.png', amethyste: 'amethyste.png', topaze: 'topaze.png',
+    cristal: 'cristal.png', coffre: 'coffre.png',
+  };
+  const itemImg = {};
+  for (const [key, file] of Object.entries(ITEM_FILES)) { const i = new Image(); i.src = 'assets/' + file; itemImg[key] = i; }
   const sprites = {}; // sprites générés (tickets sans image, gemmes, coffre)
 
   // ---------- Mise en page ----------
@@ -75,8 +83,9 @@
   // ---------- Sprites dessinés ----------
   function buildSprites() {
     for (const it of Object.values(items)) {
-      if (it.kind === 'ticket' && !img['ticket_' + it.points + '.png']) sprites[it.key] = drawTicket(it);
-      if (it.kind === 'ticket' && img['ticket_' + it.points + '.png']) sprites[it.key] = img['ticket_' + it.points + '.png'];
+      if (itemImg[it.key]) { sprites[it.key] = itemImg[it.key]; continue; }
+      // Sans image fournie : dessin de remplacement
+      if (it.kind === 'ticket') sprites[it.key] = drawTicket(it);
       if (it.kind === 'gem') sprites[it.key] = drawGem(it.color);
       if (it.kind === 'chest') sprites[it.key] = drawChest();
     }
@@ -334,17 +343,19 @@
       const d = 30 * k;
       ctx.drawImage(img['coin.png'], -d / 2, -d * 0.34, d, d * 0.68);
     } else if (it.kind === 'ticket') {
-      const s = sprites[key]; const w = 48 * k, h = w * 146 / 260;
+      const s = sprites[key]; const w = 48 * k, h = w * (s && s.width ? s.height / s.width : 146 / 260);
       ctx.scale(1, SQUASH); ctx.rotate(a);
       if (s) ctx.drawImage(s, -w / 2, -h / 2, w, h);
     } else if (it.kind === 'gem') {
       const s = sprites[key]; const w = 40 * k;
       ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(0, w * 0.12, w * 0.4, w * 0.12, 0, 0, Math.PI * 2); ctx.fill();
-      if (s) ctx.drawImage(s, -w / 2, -w * 0.78, w, w);
+      const h = s && s.width ? w * s.height / s.width : w;
+      if (s) ctx.drawImage(s, -w / 2, -h * 0.85, w, h);
     } else if (it.kind === 'chest') {
       const s = sprites[key]; const w = 50 * k;
       ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(0, w * 0.1, w * 0.48, w * 0.14, 0, 0, Math.PI * 2); ctx.fill();
-      if (s) ctx.drawImage(s, -w / 2, -w * 0.8, w, w * 160 / 180);
+      const h = s && s.width ? w * s.height / s.width : w * 160 / 180;
+      if (s) ctx.drawImage(s, -w / 2, -h * 0.9, w, h);
     }
     ctx.restore();
   }

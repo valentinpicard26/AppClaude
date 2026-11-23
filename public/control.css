@@ -60,3 +60,15 @@ nav button.on { color: var(--gold); }
 #toast { position: fixed; left: 50%; bottom: 86px; transform: translateX(-50%); background: #000c; color: #fff; padding: 8px 14px; border-radius: 10px; font-weight: 700; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 9; }
 #toast.show { opacity: 1; }
 .big-switch { margin: 12px 0 4px; padding: 10px; border-radius: 10px; background: #12030a; border: 1px solid var(--line); }
+.restore { background: #0f3a1f; color: #d6ffe2; padding: 10px 12px; font-size: 14px; }
+.catalog { max-height: 60vh; overflow: auto; margin: 6px 0; border: 1px solid var(--line); border-radius: 10px; }
+.gift { display: grid; grid-template-columns: 44px 1fr; gap: 4px 10px; align-items: center; padding: 8px; border-bottom: 1px solid var(--line); }
+.gift img, .gift .noimg { width: 44px; height: 44px; object-fit: contain; grid-row: span 2; border-radius: 8px; background: #12030a; display: grid; place-items: center; }
+.gift .gname { font-weight: 700; }
+.gift .gname small { color: var(--gold); font-weight: 700; margin-left: 4px; }
+.gift .gctl { display: flex; gap: 6px; }
+.gift .gctl select, .gift .gctl input { margin: 0; padding: 7px; font-size: 14px; }
+.gift .gctl input { width: 70px; flex: none; }
+.gift.set { background: #2c0d14; }
+.gift .bydefault { font-size: 12px; color: var(--muted); }
+.manual summary { cursor: pointer; color: var(--muted); margin: 8px 0; }

@@ -134,7 +134,7 @@ class Game {
         this.stats.diamonds += diamonds * count;
         this.stats.donors[p.id] = (this.stats.donors[p.id] || 0) + diamonds * count;
         p.gifts += count;
-        const rule = this.findGiftRule(ev.giftName, diamonds);
+        const rule = this.findGiftRule(ev.giftName, diamonds, ev.giftId);
         if (!rule) return 'gift-no-rule';
         for (let i = 0; i < count; i++) this.applyGiftAction(rule, p, now, i);
         this.touch();
@@ -161,14 +161,19 @@ class Game {
     return null;
   }
 
-  findGiftRule(giftName, diamonds) {
+  // Ordre : cadeau précis (identifiant TikTok), puis nom du cadeau, puis tranche de valeur en diamants.
+  findGiftRule(giftName, diamonds, giftId) {
     const rules = this.config.giftRules || [];
+    if (giftId !== undefined && giftId !== null && giftId !== '') {
+      const byId = rules.find((r) => r.giftId && String(r.giftId) === String(giftId));
+      if (byId) return byId;
+    }
     const name = String(giftName || '').trim().toLowerCase();
     if (name) {
       const byName = rules.find((r) => r.name && r.name.trim().toLowerCase() === name);
       if (byName) return byName;
     }
-    return rules.find((r) => !r.name && diamonds >= r.minDiamonds && diamonds <= r.maxDiamonds) || null;
+    return rules.find((r) => !r.name && !r.giftId && diamonds >= r.minDiamonds && diamonds <= r.maxDiamonds) || null;
   }
 
   applyGiftAction(rule, p, now, index) {

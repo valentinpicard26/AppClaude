@@ -13,8 +13,9 @@ const TICKET_COLORS = {
 function defaultItems() {
   const items = [{ key: 'coin', label: 'Jeton', kind: 'coin', points: 10, weight: 0 }];
   // Fréquence des tickets (PROPOSÉ) : les petits tickets sont plus fréquents.
-  const weights = { 20: 30, 40: 22, 60: 15, 80: 10, 100: 8, 120: 5, 140: 4, 160: 3, 180: 2, 200: 1 };
-  for (const v of [20, 40, 60, 80, 100, 120, 140, 160, 180, 200]) {
+  // Tickets de 20 à 100 (décision du créateur : pas de tickets au-delà de 100).
+  const weights = { 20: 30, 40: 22, 60: 15, 80: 10, 100: 8 };
+  for (const v of [20, 40, 60, 80, 100]) {
     items.push({ key: 'ticket' + v, label: 'Ticket ' + v, kind: 'ticket', points: v, weight: weights[v], color: TICKET_COLORS[v] });
   }
   items.push(
@@ -94,6 +95,7 @@ function defaultConfig() {
     blockedNames: '',           // pseudos ou identifiants bloqués, séparés par des virgules
     items: defaultItems(),
     giftRules: defaultGiftRules(),
+    giftCatalog: [],            // liste des cadeaux TikTok connus : { id, name, diamonds, image }
   };
 }
 
@@ -132,24 +134,51 @@ function applyConfigPatch(cfg, patch) {
       });
     } else if (k === 'giftRules' && Array.isArray(v)) {
       const actions = ['shake', 'coinRain', 'spawn', 'queueSkip', 'shield', 'jinxShake', 'deviate', 'loseTokens', 'steal', 'none'];
-      out.giftRules = v.slice(0, 50).filter((r) => r && actions.includes(r.action)).map((r) => ({
+      out.giftRules = v.slice(0, 300).filter((r) => r && actions.includes(r.action)).map((r) => ({
         name: String(r.name || '').slice(0, 60),
+        giftId: r.giftId ? String(r.giftId).slice(0, 40) : '',
         minDiamonds: Math.max(0, Number(r.minDiamonds) || 0),
         maxDiamonds: Math.max(0, Number(r.maxDiamonds) || 0),
         action: r.action,
         param: r.action === 'spawn' ? String(r.param || 'diamant') : Math.max(0, Math.round(Number(r.param) || 0)),
       }));
+    } else if (k === 'giftCatalog' && Array.isArray(v)) {
+      out.giftCatalog = sanitizeCatalog(v);
     }
   }
   if (out.startTokens > out.maxTokens) out.startTokens = out.maxTokens;
   return out;
 }
 
+function sanitizeCatalog(list) {
+  const seen = new Set();
+  const out = [];
+  for (const g of list.slice(0, 2000)) {
+    if (!g) continue;
+    const id = String(g.id ?? '').slice(0, 40);
+    const name = String(g.name || '').slice(0, 60);
+    if (!id || !name || seen.has(id)) continue;
+    seen.add(id);
+    const image = typeof g.image === 'string' && /^https:\/\//.test(g.image) ? g.image.slice(0, 500) : '';
+    out.push({ id, name, diamonds: Math.max(0, Math.round(Number(g.diamonds) || 0)), image });
+  }
+  return out.sort((a, b) => a.diamonds - b.diamonds || a.name.localeCompare(b.name));
+}
+
+// Ajoute ou met à jour des cadeaux dans le catalogue (par identifiant).
+function mergeCatalog(catalog, gifts) {
+  const map = new Map((catalog || []).map((g) => [g.id, g]));
+  for (const g of sanitizeCatalog(gifts)) map.set(g.id, { ...map.get(g.id), ...g, image: g.image || map.get(g.id)?.image || '' });
+  return sanitizeCatalog([...map.values()]);
+}
+
 function loadConfig(file) {
   const base = defaultConfig();
   try {
     if (file && fs.existsSync(file)) {
-      return applyConfigPatch(base, JSON.parse(fs.readFileSync(file, 'utf8')));
+      const cfg = applyConfigPatch(base, JSON.parse(fs.readFileSync(file, 'utf8')));
+      Object.defineProperty(cfg, 'fromFile', { value: true, enumerable: false });
+      return cfg;
     }
   } catch (e) {
     console.error('[config] lecture impossible, valeurs par défaut utilisées :', e.message);
@@ -164,4 +193,4 @@ function saveConfig(file, cfg) {
   fs.renameSync(tmp, file);
 }
 
-module.exports = { defaultConfig, applyConfigPatch, loadConfig, saveConfig, NUMERIC_LIMITS };
+module.exports = { defaultConfig, applyConfigPatch, loadConfig, saveConfig, mergeCatalog, NUMERIC_LIMITS };

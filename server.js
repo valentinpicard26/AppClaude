@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const express = require('express');
 const { Server } = require('socket.io');
 
-const { loadConfig, saveConfig, applyConfigPatch } = require('./src/config');
+const { loadConfig, saveConfig, applyConfigPatch, mergeCatalog } = require('./src/config');
 const { Game } = require('./src/game');
 const { Machine, STEP_MS, W, D, SLOT_X } = require('./src/machine');
 const { TikTokSource } = require('./src/tiktok');
@@ -22,6 +22,9 @@ const STATE_FILE = path.join(DATA_DIR, 'state.json');
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 
 let config = loadConfig(CONFIG_FILE);
+// Sur un hébergement sans disque (Render gratuit), les réglages sont perdus au redémarrage :
+// l'application de contrôle garde une copie et propose de la restaurer quand ce drapeau est faux.
+let configCustomized = !!config.fromFile;
 
 const app = express();
 const server = http.createServer(app);
@@ -76,6 +79,12 @@ function pushLog(line) {
   if (log.length > 60) log.shift();
 }
 function handleEvent(ev, source) {
+  // Chaque cadeau reçu enrichit le catalogue (nom, valeur, image), pour pouvoir lui attribuer un effet.
+  if (ev.type === 'gift' && ev.giftId && ev.giftName && !config.giftCatalog.some((g) => g.id === String(ev.giftId))) {
+    config = { ...config, giftCatalog: mergeCatalog(config.giftCatalog, [{ id: ev.giftId, name: ev.giftName, diamonds: ev.diamondCount, image: ev.giftImage }]) };
+    game.setConfig(config);
+    if (configCustomized) saveConfig(CONFIG_FILE, config);
+  }
   const res = game.handleEvent(ev, Date.now());
   const what = ev.type === 'chat' ? `"${String(ev.comment).slice(0, 40)}"` : ev.type === 'gift' ? `${ev.giftName || 'cadeau'} (${ev.diamondCount}💎 x${ev.repeatCount || 1})` : ev.type === 'like' ? `${ev.likeCount} likes` : '';
   pushLog(`[${source}] ${ev.nickname || ev.userId} ${ev.type} ${what} → ${res}`);
@@ -126,7 +135,7 @@ function controlState() {
   return {
     config, stats: game.controlStats(), players: game.playersList().slice(0, 100), status: game.status,
     live: tiktok.status, simAuto: sim.auto, log: log.slice(-25), objects: machine.objects.size,
-    hasSignKey: !!process.env.TIKTOK_SIGN_API_KEY, passwordSet: !!ADMIN_PASSWORD,
+    hasSignKey: !!process.env.TIKTOK_SIGN_API_KEY, passwordSet: !!ADMIN_PASSWORD, configCustomized,
   };
 }
 
@@ -140,6 +149,7 @@ function initPayload() {
 
 function applyConfig(patch) {
   config = applyConfigPatch(config, patch);
+  configCustomized = true;
   game.setConfig(config);
   machine.setConfig(config);
   saveConfig(CONFIG_FILE, config);
@@ -197,6 +207,13 @@ io.on('connection', (socket) => {
   admin('game:refill', () => { machine.prefill(); pushLog('[contrôle] plateau rempli à nouveau'); });
   admin('config:update', (patch) => { applyConfig(patch); });
   admin('config:reset', () => { const { defaultConfig } = require('./src/config'); config = defaultConfig(); applyConfig({}); });
+  admin('gifts:fetch', async (d) => {
+    const gifts = await tiktok.fetchGifts(d?.username || config.liveUsername, { signApiKey: process.env.TIKTOK_SIGN_API_KEY });
+    if (!gifts.length) throw new Error('TikTok n\'a renvoyé aucun cadeau');
+    applyConfig({ giftCatalog: mergeCatalog(config.giftCatalog, gifts) });
+    pushLog(`[contrôle] ${gifts.length} cadeaux chargés depuis TikTok`);
+    return { count: gifts.length };
+  });
   admin('sim:addViewers', (n) => ({ viewers: sim.addViewers(Math.min(50, Math.max(1, Number(n) || 1))) }));
   admin('sim:event', (ev) => {
     if (!ev || typeof ev !== 'object') throw new Error('Événement invalide');

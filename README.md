@@ -43,12 +43,14 @@ Limites de l'offre gratuite (à revérifier sur render.com/docs/free) :
 ## Ce que fait cette première version (étape 3 du plan + une partie des étapes 5, 6 et 8)
 
 - Machine à trois fentes sur le visuel fourni, poussoir qui avance et recule, physique 2D (Matter.js) calculée **sur le serveur** : une seule simulation fait foi, les points sont crédités une seule fois.
-- Jetons, tickets (20 et 40 avec tes images ; 60 à 200 dessinés en attendant les tiennes), gemmes et coffre (dessinés en attendant les visuels).
+- Jetons, tickets de 20 à 100, six gemmes et coffre mystère, tous avec les visuels du créateur.
 - Tour par tour : bandeau « À toi, @pseudo » + compte à rebours, seul le joueur du tour peut jouer, placement automatique au bout du temps, délai de grâce.
 - 5 jetons à l'arrivée, 100 likes = 5 jetons, abonnement = 5 jetons, stock max 20, pas de nouveaux jetons en revenant dans le même live.
 - Cadeaux configurables : rose = secousse, et par valeur en diamants : passer devant, pluie de jetons, gemmes, coffre (valeurs **proposées**, à trancher).
 - Classement du live, file d'attente, gains affichés « +200 @pseudo », écran d'attente quand personne ne joue.
 - Application de contrôle : Live, Réglages, Cadeaux, Simulateur, Aperçu, statistiques, journal.
+- Catalogue des cadeaux TikTok (chargé depuis TikTok, complété par les cadeaux reçus ou ajouté à la main) : un effet au choix pour chaque cadeau.
+- Copie des réglages dans le téléphone (onglet contrôle) et proposition de restauration quand le serveur a redémarré sans ses fichiers (Render gratuit).
 - Sauvegarde continue (toutes les 5 s) et reprise en pause après un plantage.
 - Connecteur TikTok (TikTok-Live-Connector 2.5) branché mais **non testé sur un vrai live**.
 - Pouvoirs qui gênent le joueur du tour : secousse au lancer, jeton dévié, perte de jetons, vol de jetons (au profit du donateur), et bouclier pour se protéger. Régulation : la victime garde toujours 1 jeton, une cible touchée trop récemment subit l'effet à son tour suivant, interrupteur « mode paisible » dans l'onglet Live.
