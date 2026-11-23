@@ -31,6 +31,7 @@ class Machine {
     this.shakePhase = 0;
     this.lastTicketCheck = 0;
     this.pendingRain = [];
+    this.events = []; // apparitions spontanées (pierres précieuses), lues par le serveur
     this.buildStatic();
   }
 
@@ -194,8 +195,11 @@ class Machine {
     while (this.countKind('ticket') < this.config.ticketsOnPlate) if (!this.addTicket(false)) break;
   }
 
-  pickTicketKey() {
-    const tickets = (this.config.items || []).filter((i) => i.kind === 'ticket' && i.weight > 0);
+  pickTicketKey() { return this.pickWeighted('ticket'); }
+
+  // Tirage au hasard d'un objet d'une sorte donnée, selon sa fréquence (poids) réglée dans le contrôle.
+  pickWeighted(kind) {
+    const tickets = (this.config.items || []).filter((i) => i.kind === kind && i.weight > 0);
     const total = tickets.reduce((s, t) => s + t.weight, 0);
     if (!total) return null;
     let r = this.random() * total;
@@ -282,10 +286,15 @@ class Machine {
       }
     }
 
-    // Tickets : on maintient un nombre cible sur le plateau
+    // Tickets : on maintient un nombre cible sur le plateau. Pierres précieuses : apparition au hasard.
     if (!settle && this.time - this.lastTicketCheck > 2500) {
       this.lastTicketCheck = this.time;
       if (this.countKind('ticket') < this.config.ticketsOnPlate) this.addTicket(true);
+      const every = this.config.gemEverySeconds;
+      if (every > 0 && this.countKind('gem') < this.config.maxGemsOnPlate && this.random() < 2.5 / every) {
+        const key = this.pickWeighted('gem');
+        if (key && this.spawn(key, {})) this.events.push({ type: 'gemSpawn', item: key });
+      }
     }
     return fallen;
   }

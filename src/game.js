@@ -6,7 +6,7 @@
 
 const SLOT_NAMES = ['gauche', 'centre', 'droite'];
 // Pouvoirs qui gênent le joueur dont c'est le tour.
-const HARMFUL = ['jinxShake', 'deviate', 'loseTokens', 'steal'];
+const HARMFUL = ['jinxShake', 'deviate', 'loseTokens', 'steal', 'blockSlot'];
 
 class Game {
   constructor(config, { actions = {}, random = Math.random, onFx = () => {} } = {}) {
@@ -27,6 +27,13 @@ class Game {
     this.status = 'running';
     this.pausedAt = null;
     this.turnCounter = 0;
+    // Secousses : jouées l'une après l'autre ; ce qui tombe pendant une secousse revient à celui qui l'a offerte.
+    this.shakeQueue = [];
+    this.nextShakeAt = 0;
+    this.shakeOwner = null; // { playerId, until }
+    // Premier du classement : annonce « Félicitations » quand il change, puis à intervalle régulier.
+    this.leaderId = null;
+    this.leaderAnnouncedAt = 0;
     this.stats = { comments: 0, likes: 0, gifts: 0, diamonds: 0, follows: 0, joins: 0, powers: 0, blocked: 0, donors: {} };
     this.version = 0;
   }
@@ -49,7 +56,7 @@ class Game {
     let p = this.players.get(id);
     if (!p) {
       p = {
-        id, nickname: cleanName(user.nickname || user.uniqueId || id), tokens: 0, points: 0,
+        id, nickname: cleanName(user.nickname || user.uniqueId || id), avatar: cleanAvatar(user.avatar), tokens: 0, points: 0,
         likeRemainder: 0, followed: false, missedTurns: 0, active: true, boosted: false,
         joinedAt: now, lastSeen: now, gifts: 0, shieldUntil: 0, lastHitAt: null, pending: [],
       };
@@ -60,6 +67,7 @@ class Game {
       this.fx({ type: 'join', player: p.nickname });
     } else {
       if (user.nickname) p.nickname = cleanName(user.nickname);
+      if (user.avatar) p.avatar = cleanAvatar(user.avatar);
       p.lastSeen = now;
       if (!p.active) { p.active = true; p.missedTurns = 0; }
     }
@@ -102,6 +110,11 @@ class Game {
         if (slot === null) return 'chat';
         if (this.status !== 'running' || !this.turn || this.turn.phase !== 'aim' || this.turn.playerId !== p.id) {
           return 'ignored-not-your-turn';
+        }
+        if ((this.turn.blocked || []).includes(slot)) {
+          // Fente bloquée par un pouvoir : le joueur doit en choisir une autre (son tour continue).
+          this.fx({ type: 'slotBlocked', player: p.nickname, slot });
+          return 'slot-blocked';
         }
         this.launchFor(p, slot, now, false);
         return 'launch';
@@ -161,26 +174,22 @@ class Game {
     return null;
   }
 
-  // Ordre : cadeau précis (identifiant TikTok), puis nom du cadeau, puis tranche de valeur en diamants.
+  // Cadeau lié à un effet : reconnu par son identifiant TikTok, sinon par son nom. Sans liaison : aucun effet.
   findGiftRule(giftName, diamonds, giftId) {
     const rules = this.config.giftRules || [];
     if (giftId !== undefined && giftId !== null && giftId !== '') {
       const byId = rules.find((r) => r.giftId && String(r.giftId) === String(giftId));
       if (byId) return byId;
     }
-    const name = String(giftName || '').trim().toLowerCase();
-    if (name) {
-      const byName = rules.find((r) => r.name && r.name.trim().toLowerCase() === name);
-      if (byName) return byName;
-    }
-    return rules.find((r) => !r.name && !r.giftId && diamonds >= r.minDiamonds && diamonds <= r.maxDiamonds) || null;
+    const name = giftKey(giftName);
+    if (name) return rules.find((r) => r.name && giftKey(r.name) === name) || null;
+    return null;
   }
 
   applyGiftAction(rule, p, now, index) {
     switch (rule.action) {
       case 'shake':
-        this.actions.shake({ by: p.nickname, index });
-        this.fx({ type: 'shake', by: p.nickname });
+        this.queueShake(p, now, false);
         break;
       case 'coinRain':
         this.actions.coinRain(Math.max(1, rule.param || 1), { by: p.nickname });
@@ -196,7 +205,7 @@ class Game {
       case 'shield':
         this.giveShield(p, now);
         break;
-      case 'jinxShake': case 'deviate': case 'loseTokens': case 'steal':
+      case 'jinxShake': case 'deviate': case 'loseTokens': case 'steal': case 'blockSlot':
         this.castPower({ kind: rule.action, param: rule.param, by: p.id }, now);
         break;
       default:
@@ -254,7 +263,7 @@ class Game {
     const by = this.players.get(pw.by);
     const byName = by?.nickname || '?';
     const isAiming = this.turn && this.turn.playerId === target.id && this.turn.phase === 'aim';
-    if (pw.kind === 'deviate' && !isAiming) {
+    if ((pw.kind === 'deviate' || pw.kind === 'blockSlot') && !isAiming) {
       // Le jeton est déjà parti : la déviation s'applique à son prochain lancer.
       (target.pending ||= []).push(pw);
       this.fx({ type: 'pending', by: byName, kind: pw.kind, target: target.nickname });
@@ -271,12 +280,20 @@ class Game {
     let amount = 0;
     switch (pw.kind) {
       case 'jinxShake':
-        if (isAiming) this.turn.jinxShake = (this.turn.jinxShake || 0) + 1; // secousse au moment du lancer
-        else this.actions.shake({ by: byName });
+        if (isAiming) (this.turn.jinxBy ||= []).push(pw.by); // secousse au moment du lancer
+        else if (by) this.queueShake(by, now, true);
         break;
       case 'deviate':
         this.turn.deviate = true;
         break;
+      case 'blockSlot': {
+        // Bloque une fente pendant ce tour ; on laisse toujours au moins une fente libre.
+        const blocked = (this.turn.blocked ||= []);
+        const slot = Math.min(2, Math.max(0, Number(pw.param) || 0));
+        if (!blocked.includes(slot) && blocked.length < 2) blocked.push(slot);
+        amount = slot;
+        break;
+      }
       case 'loseTokens': {
         amount = Math.max(0, Math.min(Number(pw.param) || 0, target.tokens - 1)); // toujours au moins 1 jeton
         target.tokens -= amount;
@@ -330,7 +347,8 @@ class Game {
     let deviatedFrom = null;
     if (this.turn.deviate) {
       // Jeton dévié : il part dans une autre fente, au hasard.
-      const others = [0, 1, 2].filter((x) => x !== slot);
+      let others = [0, 1, 2].filter((x) => x !== slot && !(this.turn.blocked || []).includes(x));
+      if (!others.length) others = [0, 1, 2].filter((x) => x !== slot);
       deviatedFrom = slot;
       slot = others[Math.floor(this.random() * others.length) % others.length];
       this.turn.deviate = false;
@@ -340,21 +358,62 @@ class Game {
     this.turn.auto = auto;
     this.turn.endsAt = now + this.config.afterLaunchMs;
     this.actions.launch(slot, { playerId: p.id, nickname: p.nickname });
-    const jinx = this.turn.jinxShake || 0;
-    for (let i = 0; i < jinx; i++) this.actions.shake({ by: null, index: i });
-    this.turn.jinxShake = 0;
+    const jinxBy = this.turn.jinxBy || [];
+    for (const id of jinxBy) { const by = this.players.get(id); if (by) this.queueShake(by, now, true, true); }
+    const jinx = jinxBy.length;
+    this.turn.jinxBy = [];
+    this.runShakes(now); // la secousse au lancer part tout de suite si aucune autre n'est en cours
     this.fx({ type: 'launch', player: p.nickname, slot, slotName: SLOT_NAMES[slot], auto, deviatedFrom, jinx });
     this.touch();
     return true;
   }
 
+  // ---------- Secousses ----------
+  queueShake(p, now, jinx = false, front = false) {
+    const item = { playerId: p.id, nickname: p.nickname, jinx };
+    if (front) this.shakeQueue.unshift(item); else this.shakeQueue.push(item);
+    this.runShakes(now);
+  }
+
+  // Lance la prochaine secousse si la précédente est finie depuis au moins shakeGapMs.
+  runShakes(now) {
+    if (this.status !== 'running') return;
+    while (this.shakeQueue.length && now >= this.nextShakeAt) {
+      const s = this.shakeQueue.shift();
+      const dur = this.config.shakeDurationMs;
+      this.actions.shake({ by: s.nickname });
+      this.shakeOwner = { playerId: s.playerId, until: now + dur + this.config.shakeCreditMs };
+      this.nextShakeAt = now + dur + this.config.shakeGapMs;
+      this.fx({ type: 'shake', by: s.nickname, jinx: s.jinx, queued: this.shakeQueue.length });
+      this.touch();
+    }
+  }
+
+  // ---------- Premier du classement ----------
+  checkLeader(now) {
+    if (!this.config.celebrateLeader) return;
+    const top = [...this.players.values()].filter((p) => p.points > 0)
+      .sort((a, b) => b.points - a.points || a.joinedAt - b.joinedAt)[0];
+    if (!top) { this.leaderId = null; return; }
+    const changed = top.id !== this.leaderId;
+    const repeat = this.config.leaderRepeatSeconds > 0 && now - this.leaderAnnouncedAt >= this.config.leaderRepeatSeconds * 1000;
+    if (changed || repeat) {
+      this.leaderId = top.id;
+      this.leaderAnnouncedAt = now;
+      this.fx({ type: 'leader', player: top.nickname, avatar: top.avatar || '', points: top.points, isNew: changed });
+    }
+  }
+
   update(now) {
     if (this.status !== 'running') return;
+    this.runShakes(now);
+    this.checkLeader(now);
     if (this.turn) {
       if (this.turn.phase === 'aim' && now >= this.turn.deadline) {
         const p = this.players.get(this.turn.playerId);
         p.missedTurns++;
-        const slot = Math.floor(this.random() * 3);
+        const free = [0, 1, 2].filter((x) => !(this.turn.blocked || []).includes(x));
+        const slot = free[Math.floor(this.random() * free.length) % free.length];
         if (!this.launchFor(p, slot, now, true)) this.endTurn(now);
       } else if (this.turn.phase === 'launched' && now >= this.turn.endsAt) {
         this.endTurn(now);
@@ -395,6 +454,8 @@ class Game {
 
   // Attribution d'un objet tombé : délai de grâce du tour précédent, sinon joueur du tour en cours.
   ownerAt(now) {
+    // Pendant une secousse (et juste après), ce qui tombe revient à celui qui l'a offerte.
+    if (this.shakeOwner && now <= this.shakeOwner.until && this.players.has(this.shakeOwner.playerId)) return this.shakeOwner.playerId;
     if (this.prevTurn && now - this.prevTurn.endedAt <= this.config.graceSeconds * 1000) return this.prevTurn.playerId;
     if (this.turn) return this.turn.playerId;
     return null;
@@ -412,7 +473,7 @@ class Game {
     }
     const ownerId = this.ownerAt(now);
     const p = ownerId ? this.players.get(ownerId) : null;
-    if (p) { p.points += points; this.touch(); }
+    if (p) { p.points += points; this.touch(); this.checkLeader(now); }
     this.fx({ type: 'fall', item: item.key, points, player: p ? p.nickname : null, x: item.x, id: item.id });
     return { playerId: p ? p.id : null, points };
   }
@@ -426,6 +487,9 @@ class Game {
       if (this.turn.endsAt) this.turn.endsAt += d;
     }
     if (this.prevTurn) this.prevTurn.endedAt += d;
+    if (this.shakeOwner) this.shakeOwner.until += d;
+    this.nextShakeAt += d;
+    this.leaderAnnouncedAt += d;
     for (const p of this.players.values()) {
       if (p.shieldUntil > this.pausedAt) p.shieldUntil += d; // le bouclier ne s'use pas pendant la pause
       if (p.lastHitAt) p.lastHitAt += d;
@@ -441,7 +505,7 @@ class Game {
   leaderboard(n = 5) {
     return [...this.players.values()].filter((p) => p.points > 0)
       .sort((a, b) => b.points - a.points || a.joinedAt - b.joinedAt).slice(0, n)
-      .map((p) => ({ nickname: p.nickname, points: p.points }));
+      .map((p) => ({ nickname: p.nickname, avatar: p.avatar || '', points: p.points }));
   }
 
   publicState(now) {
@@ -454,7 +518,7 @@ class Game {
         remainingMs: t.phase === 'aim' ? Math.max(0, t.deadline - (this.status === 'paused' ? this.pausedAt : now)) : 0,
         totalMs: this.config.turnSeconds * 1000, n: t.n,
         shieldMs: Math.max(0, (tp.shieldUntil || 0) - (this.status === 'paused' ? this.pausedAt : now)),
-        jinx: !!t.jinxShake, deviate: !!t.deviate,
+        jinx: !!t.jinxShake, deviate: !!t.deviate, blocked: t.blocked || [], avatar: tp.avatar || '',
       } : null,
       queue: this.queue.slice(0, 6).map((id) => { const p = this.players.get(id); return { nickname: p.nickname, tokens: p.tokens, boosted: p.boosted, shield: this.hasShield(p, now) }; }),
       peaceful: !!this.config.peaceful,
@@ -468,7 +532,7 @@ class Game {
   }
 
   roster(now, max = 7) {
-    const row = (p, extra) => ({ nickname: p.nickname, tokens: p.tokens, boosted: p.boosted, shield: this.hasShield(p, now), ...extra });
+    const row = (p, extra) => ({ nickname: p.nickname, avatar: p.avatar || '', tokens: p.tokens, boosted: p.boosted, shield: this.hasShield(p, now), ...extra });
     const out = [];
     if (this.turn) { const p = this.players.get(this.turn.playerId); if (p) out.push(row(p, { current: true })); }
     for (const id of this.queue) { if (out.length >= max) break; out.push(row(this.players.get(id), {})); }
@@ -519,9 +583,15 @@ class Game {
   }
 }
 
+// Nom de cadeau comparable : minuscules, sans espaces ni ponctuation (« Whale diving » = « Whale Diving »).
+function giftKey(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, ''); }
+
+// Photo de profil TikTok : seulement une adresse https.
+function cleanAvatar(u) { return typeof u === 'string' && /^https:\/\//.test(u) ? u.slice(0, 600) : ''; }
+
 function cleanName(s) {
   // Retire les caractères de contrôle et limite la longueur affichée.
   return String(s).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 24) || 'viewer';
 }
 
-module.exports = { Game, SLOT_NAMES, HARMFUL };
+module.exports = { Game, SLOT_NAMES, HARMFUL, giftKey };

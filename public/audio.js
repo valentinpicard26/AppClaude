@@ -98,6 +98,15 @@ window.TPAudio = (() => {
       }
       case 'land': clink(t, { pitch: 0.8, vol: 0.3, decay: 0.2 }); break; // jeton qui se pose sur le plateau
       case 'launch': noise(t, 0.12, 900, 0.25); tone(t, 700, 0.12, { type: 'triangle', vol: 0.06, f2: 350 }); break;
+      case 'applause': {
+        // Applaudissements : des dizaines de petits claquements au hasard pendant ~1,6 s.
+        for (let i = 0; i < 70; i++) {
+          const at = t + Math.random() * 1.6 * (0.4 + 0.6 * Math.random());
+          noise(at, 0.03 + Math.random() * 0.03, 1200 + Math.random() * 1800, 0.25 + Math.random() * 0.35);
+        }
+        [0, 4, 7, 12].forEach((st, i) => tone(t + i * 0.09, 523 * 2 ** (st / 12), 0.4, { type: 'triangle', vol: 0.09 }));
+        break;
+      }
       case 'big':
         [0, 4, 7, 12, 16].forEach((st, i) => tone(t + i * 0.08, 784 * 2 ** (st / 12), 0.35, { type: 'triangle', vol: 0.12 }));
         for (let i = 0; i < 6; i++) clink(t + 0.1 + i * 0.07, { pitch: 1 + i * 0.05, vol: 0.3 });
@@ -179,5 +188,20 @@ window.TPAudio = (() => {
     }, 300);
   }
 
-  return { unlock, isOn, setOptions, sfx };
+  // Voix française (synthèse vocale du téléphone) ; renvoie false si elle n'est pas disponible.
+  function say(text) {
+    try {
+      if (!opts.sounds || !('speechSynthesis' in window)) return false;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'fr-FR';
+      const fr = speechSynthesis.getVoices().find((v) => /^fr(-|_|$)/i.test(v.lang));
+      if (fr) u.voice = fr;
+      u.rate = 1.05; u.pitch = 1.1; u.volume = Math.min(1, opts.sfxVolume / 70);
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
+      return true;
+    } catch { return false; }
+  }
+
+  return { unlock, isOn, setOptions, sfx, say };
 })();

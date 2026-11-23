@@ -68,10 +68,14 @@
     'f-cmds': [['commandsLeft', 'Gauche'], ['commandsCenter', 'Centre'], ['commandsRight', 'Droite']],
     'f-machine': [
       ['coinsOnPlate', 'Jetons posés au départ', 'Appliqué au prochain « Remplir le plateau »'],
-      ['ticketsOnPlate', 'Tickets sur le plateau'], ['maxObjects', 'Objets maximum', 'Baisser si le téléphone rame'],
+      ['ticketsOnPlate', 'Tickets sur le plateau'],
+      ['gemEverySeconds', 'Pierre précieuse : une toutes les … s (en moyenne)', 'Apparition au hasard ; 0 = jamais'],
+      ['maxGemsOnPlate', 'Pierres précieuses en même temps (max)'], ['maxObjects', 'Objets maximum', 'Baisser si le téléphone rame'],
       ['pusherStroke', 'Course du poussoir'], ['pusherPeriodSeconds', 'Aller-retour du poussoir (s)'],
       ['sideGapRatio', 'Ouverture des côtés (0 à 0,8)', 'Ce qui tombe par les côtés est perdu'],
       ['shakeIntensity', 'Intensité des secousses (1 à 10)'], ['shakeDurationMs', 'Durée des secousses (ms)'],
+      ['shakeGapMs', 'Pause entre deux secousses (ms)', 'Jamais deux secousses en même temps'],
+      ['shakeCreditMs', 'Points d\'une secousse : délai après la secousse (ms)', 'Ce qui tombe pendant la secousse et ce délai revient à celui qui l\'a offerte'],
       ['coinRainDelayMs', 'Intervalle pluie de jetons (ms)'],
     ],
     'f-powers': [
@@ -79,7 +83,7 @@
       ['shieldSeconds', 'Durée du bouclier (s)'],
       ['powerCooldownSeconds', 'Délai entre deux pouvoirs (s)', 'Un joueur touché trop tôt subit l\'effet à son tour suivant'],
     ],
-    'f-misc': [['showRewards', 'Afficher « cadeau → effet » aux viewers', 'En rotation en bas de l\'écran du jeu, avec les likes et l\'abonnement'], ['rewardsSeconds', 'Durée de chaque ligne (s)'],['sounds', 'Bruitages'], ['sfxVolume', 'Volume des bruitages (0 à 100)'], ['music', 'Musique d\'ambiance', 'Générée par le jeu : originale et libre de droits'], ['musicVolume', 'Volume de la musique (0 à 100)'], ['blockedNames', 'Pseudos bloqués', 'Séparés par des virgules']],
+    'f-misc': [['celebrateLeader', '« Félicitations » au premier du classement'], ['leaderRepeatSeconds', 'Le refaire toutes les … s s\'il reste premier', '0 = seulement quand il change'], ['leaderVoice', 'Voix française « Félicitations à … »', 'Sinon : applaudissements seuls'],['showRewards', 'Afficher « cadeau → effet » aux viewers', 'En rotation en bas de l\'écran du jeu, avec les likes et l\'abonnement'], ['rewardsSeconds', 'Durée de chaque ligne (s)'],['sounds', 'Bruitages'], ['sfxVolume', 'Volume des bruitages (0 à 100)'], ['music', 'Musique d\'ambiance', 'Générée par le jeu : originale et libre de droits'], ['musicVolume', 'Volume de la musique (0 à 100)'], ['blockedNames', 'Pseudos bloqués', 'Séparés par des virgules']],
   };
 
   function renderSettings(cfg) {
@@ -96,7 +100,7 @@
     $('items').innerHTML = cfg.items.map((it) => `<tr>
       <td>${esc(it.label)}</td>
       <td><input type="number" data-item="${it.key}" data-f="points" value="${it.points}">${it.kind === 'chest' ? `<br><small>à</small> <input type="number" data-item="${it.key}" data-f="pointsMax" value="${it.pointsMax}">` : ''}</td>
-      <td>${it.kind === 'ticket' ? `<input type="number" data-item="${it.key}" data-f="weight" value="${it.weight}">` : '<small class="muted">cadeau</small>'}</td></tr>`).join('');
+      <td>${it.kind === 'ticket' || it.kind === 'gem' ? `<input type="number" data-item="${it.key}" data-f="weight" value="${it.weight}">` : `<small class="muted">${it.kind === 'chest' ? 'cadeau lié' : 'lancé'}</small>`}</td></tr>`).join('');
   }
 
   function collectSettings() {
@@ -112,104 +116,98 @@
   $('save-settings').onclick = async () => { const r = await act('config:update', collectSettings(), 'Réglages enregistrés ✅'); if (r.ok) settingsLoaded = false; };
   $('reset-settings').onclick = async () => { if (confirm('Revenir à tous les réglages par défaut ?')) { await act('config:reset', null, 'Réglages par défaut'); settingsLoaded = false; rulesLoaded = false; } };
 
-  // ---------- Cadeaux ----------
-  const ACTIONS = {
-    shake: 'Secousse', coinRain: 'Pluie de jetons', spawn: 'Objet bonus', queueSkip: 'Passer devant',
-    shield: '🛡️ Bouclier (pour le donateur)', jinxShake: '🌪️ Secousse au lancer', deviate: '↪️ Jeton dévié',
-    loseTokens: '💥 Perte de jetons', steal: '🦹 Vol de jetons', none: 'Rien',
-  };
-  function ruleHtml(r, items) {
-    const spawnOpts = items.filter((i) => i.kind !== 'coin').map((i) => `<option value="${i.key}" ${r.param === i.key ? 'selected' : ''}>${esc(i.label)}</option>`).join('');
-    const paramLabel = { coinRain: 'Nombre de jetons', queueSkip: 'Places (0 = tout devant)', spawn: 'Objet', loseTokens: 'Jetons perdus', steal: 'Jetons volés' }[r.action] || 'Paramètre (inutilisé)';
-    return `<div class="rule">
-      <label class="full">Nom du cadeau (vide = règle par valeur)<input data-r="name" value="${esc(r.name)}"></label>
-      <label>Diamants min<input type="number" data-r="minDiamonds" value="${r.minDiamonds}"></label>
-      <label>Diamants max<input type="number" data-r="maxDiamonds" value="${r.maxDiamonds}"></label>
-      <label>Effet<select data-r="action">${Object.entries(ACTIONS).map(([k, v]) => `<option value="${k}" ${r.action === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
-      <label>${paramLabel}${r.action === 'spawn' ? `<select data-r="param">${spawnOpts}</select>` : `<input type="number" data-r="param" value="${Number(r.param) || 0}">`}</label>
-      <button class="danger full" data-del>Supprimer</button></div>`;
-  }
+  // ---------- Cadeaux : liaisons « cadeau TikTok → effet » ----------
+  // La liste des effets vient du serveur (src/effects.js) : un nouveau pouvoir y apparaît automatiquement.
   let rulesDraft = [];
-  function renderRules() {
-    const items = st.config.items;
-    // Les règles liées à un cadeau précis se règlent dans le catalogue ; ici, les autres.
-    const idx = rulesDraft.map((r, i) => (r.giftId ? -1 : i)).filter((i) => i >= 0);
-    $('rules').innerHTML = idx.map((i) => ruleHtml(rulesDraft[i], items)).join('');
-    $('rules').querySelectorAll('.rule').forEach((el, j) => {
-      const i = idx[j];
-      el.querySelectorAll('[data-r]').forEach((inp) => {
-        inp.onchange = () => {
-          const k = inp.dataset.r;
-          rulesDraft[i][k] = inp.type === 'number' ? Number(inp.value) : inp.value;
-          if (k === 'action') { rulesDraft[i].param = { spawn: 'diamant', coinRain: 5, loseTokens: 2, steal: 3, queueSkip: 3 }[inp.value] ?? 1; renderRules(); }
-        };
-      });
-      el.querySelector('[data-del]').onclick = () => { rulesDraft.splice(i, 1); renderRules(); };
-    });
+  let catalogKey = '';
+  const gkey = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '');
+  function giftInfo(r) {
+    const cat = st?.config.giftCatalog || [];
+    return cat.find((g) => r.giftId && g.id === String(r.giftId)) || cat.find((g) => gkey(g.name) === gkey(r.name)) || { name: r.name, image: '' };
   }
-  // ---------- Catalogue des cadeaux ----------
-  const DEFAULT_PARAM = { spawn: 'diamant', coinRain: 5, loseTokens: 2, steal: 3, queueSkip: 3 };
-  function ruleFor(diamonds, name) {
-    const n = String(name || '').trim().toLowerCase();
-    return rulesDraft.find((r) => !r.giftId && r.name && r.name.trim().toLowerCase() === n)
-      || rulesDraft.find((r) => !r.giftId && !r.name && diamonds >= r.minDiamonds && diamonds <= r.maxDiamonds);
+  function effectOptions(r) {
+    const effects = st?.effects || [];
+    const cur = effects.find((e) => e.action === r.action && String(e.param) === String(r.param));
+    // Effet qui n'est plus proposé (retiré du menu) : affiché tel quel, à remplacer.
+    const old = cur ? '' : `<option value="" selected>⚠️ Effet retiré (${esc(r.action)}) : choisis-en un</option>`;
+    return old + effects.map((e) => `<option value="${esc(e.id)}" ${cur && cur.id === e.id ? 'selected' : ''}>${e.icon} ${esc(e.label)}</option>`).join('');
   }
-  function paramCtl(r, items) {
-    if (r.action === 'spawn') return `<select data-g="param">${items.filter((i) => i.kind !== 'coin').map((i) => `<option value="${i.key}" ${r.param === i.key ? 'selected' : ''}>${esc(i.label)}</option>`).join('')}</select>`;
-    if (['coinRain', 'loseTokens', 'steal', 'queueSkip'].includes(r.action)) return `<input type="number" min="0" data-g="param" value="${Number(r.param) || 0}" title="Nombre">`;
-    return '';
+  function imgHtml(g) { return g && g.image ? `<img src="${esc(g.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="noimg">🎁</span>'; }
+  // Cadeaux ajoutés à la main dans cette session (envoyés au serveur à l'enregistrement).
+  let extraGifts = [];
+  function catalog() {
+    const all = [...(st?.config.giftCatalog || []), ...extraGifts];
+    const seen = new Set();
+    return all.filter((g) => { const k = gkey(g.name); if (seen.has(k)) return false; seen.add(k); return true; })
+      .sort((a, b) => (a.diamonds || 0) - (b.diamonds || 0) || a.name.localeCompare(b.name));
   }
-  function renderCatalog() {
-    const cat = st.config.giftCatalog || [];
-    const q = $('gifts-search').value.trim().toLowerCase();
-    const onlySet = $('gifts-filter').value === 'set';
-    const items = st.config.items;
-    const rows = cat.filter((g) => (!q || g.name.toLowerCase().includes(q)) && (!onlySet || rulesDraft.some((r) => r.giftId === g.id))).slice(0, 400);
-    if (!cat.length) { $('catalog').innerHTML = '<p class="muted small" style="padding:8px">Catalogue vide : charge-le depuis TikTok, ou ajoute un cadeau à la main.</p>'; return; }
-    $('catalog').innerHTML = rows.map((g) => {
-      const r = rulesDraft.find((x) => x.giftId === g.id);
-      const def = r ? null : ruleFor(g.diamonds, g.name);
-      return `<div class="gift ${r ? 'set' : ''}" data-id="${esc(g.id)}">
-        ${g.image ? `<img src="${esc(g.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="noimg">🎁</span>'}
-        <div class="gname">${esc(g.name)}<small>💎 ${g.diamonds}</small></div>
-        <div class="gctl"><select data-g="action"><option value="">${def ? 'Par valeur : ' + esc(ACTIONS[def.action]) : '— Aucun effet —'}</option>
-          ${Object.entries(ACTIONS).map(([k, v]) => `<option value="${k}" ${r && r.action === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
-          ${r ? paramCtl(r, items) : ''}</div></div>`;
-    }).join('') + (cat.length > rows.length && !q && !onlySet ? '<p class="muted small" style="padding:8px">Utilise la recherche pour voir les autres cadeaux.</p>' : '');
-    $('catalog').querySelectorAll('.gift').forEach((el) => {
-      const g = cat.find((x) => x.id === el.dataset.id);
-      el.querySelector('[data-g=action]').onchange = (e) => {
-        const i = rulesDraft.findIndex((x) => x.giftId === g.id);
-        if (!e.target.value) { if (i >= 0) rulesDraft.splice(i, 1); }
-        else {
-          const rule = { name: g.name, giftId: g.id, minDiamonds: 0, maxDiamonds: 0, action: e.target.value, param: DEFAULT_PARAM[e.target.value] ?? 1 };
-          if (i >= 0) rulesDraft[i] = rule; else rulesDraft.push(rule);
-        }
-        renderCatalog();
-        toast('Pense à enregistrer');
+  function giftOptions(r) {
+    const cur = giftInfo(r);
+    const list = catalog();
+    const inList = list.some((g) => gkey(g.name) === gkey(cur.name));
+    return (inList ? '' : `<option value="name:${esc(r.name)}" selected>${esc(r.name)}</option>`)
+      + list.map((g) => `<option value="${esc(g.id)}" ${gkey(g.name) === gkey(cur.name) ? 'selected' : ''}>${esc(g.name)}${g.diamonds ? ` — ${g.diamonds} pièce${g.diamonds > 1 ? 's' : ''} TikTok` : ''}</option>`).join('');
+  }
+  function renderLinks() {
+    if (!st) return;
+    $('cat-count').textContent = catalog().length;
+    const counts = {};
+    rulesDraft.forEach((r) => { const k = gkey(r.name); counts[k] = (counts[k] || 0) + 1; });
+    $('links').innerHTML = rulesDraft.length ? rulesDraft.map((r, i) => {
+      const g = giftInfo(r);
+      const dup = counts[gkey(r.name)] > 1;
+      return `<div class="link-row ${dup ? 'dup' : ''}" data-i="${i}">${imgHtml(g)}
+        <select data-gift title="Cadeau TikTok">${giftOptions(r)}</select>
+        <button class="del" data-del title="Retirer">🗑️</button>
+        <select data-eff title="Effet">${effectOptions(r)}</select></div>`;
+    }).join('') : '<p class="muted small">Aucun cadeau lié pour l\'instant : appuie sur « + Lier un cadeau ».</p>';
+    $('links').querySelectorAll('.link-row').forEach((el) => {
+      const i = Number(el.dataset.i);
+      el.querySelector('[data-gift]').onchange = (e) => {
+        const g = catalog().find((x) => x.id === e.target.value);
+        if (!g) return;
+        rulesDraft[i].name = g.name; rulesDraft[i].giftId = g.id;
+        renderLinks();
+        if (rulesDraft.filter((r) => gkey(r.name) === gkey(g.name)).length > 1) toast('⚠️ Ce cadeau est déjà lié sur une autre ligne');
+        else toast('Pense à enregistrer');
       };
-      const p = el.querySelector('[data-g=param]');
-      if (p) p.onchange = () => { const r = rulesDraft.find((x) => x.giftId === g.id); r.param = p.type === 'number' ? Number(p.value) : p.value; };
+      el.querySelector('[data-eff]').onchange = (e) => {
+        const eff = (st.effects || []).find((x) => x.id === e.target.value);
+        if (eff) { rulesDraft[i].action = eff.action; rulesDraft[i].param = eff.param; toast('Pense à enregistrer'); }
+      };
+      el.querySelector('[data-del]').onclick = () => { rulesDraft.splice(i, 1); renderLinks(); toast('Pense à enregistrer'); };
     });
   }
-  $('gifts-search').oninput = renderCatalog;
-  $('gifts-filter').onchange = renderCatalog;
+  $('link-add').onclick = () => {
+    const used = new Set(rulesDraft.map((r) => gkey(r.name)));
+    const g = catalog().find((x) => !used.has(gkey(x.name))) || catalog()[0];
+    if (!g) return toast('Aucun cadeau dans la liste : ajoute-en un plus bas');
+    rulesDraft.unshift({ name: g.name, giftId: g.id, action: 'shake', param: 1 });
+    renderLinks();
+    toast('Choisis le cadeau et son effet, puis enregistre');
+  };
+  $('pick-other-ok').onclick = () => {
+    const name = $('pick-other').value.trim();
+    if (!name) return toast('Indique le nom du cadeau');
+    $('pick-other').value = '';
+    if (catalog().some((g) => gkey(g.name) === gkey(name))) return toast('Ce cadeau est déjà dans la liste');
+    extraGifts.push({ id: 'nom-' + gkey(name), name, diamonds: 0, image: '' });
+    renderLinks();
+    toast('Ajouté au menu des cadeaux');
+  };
   $('gifts-fetch').onclick = async () => {
     toast('Chargement des cadeaux…');
     const r = await act('gifts:fetch', { username: $('live-user').value });
-    if (r.ok) { toast(`${r.count} cadeaux chargés ✅`); catalogKey = ''; }
+    if (r.ok) toast(`${r.count} cadeaux chargés ✅`);
   };
-  $('man-add').onclick = async () => {
-    const name = $('man-name').value.trim(); const diamonds = Number($('man-dia').value) || 0;
-    if (!name) return toast('Indique le nom du cadeau');
-    const cat = (st.config.giftCatalog || []).filter((g) => g.name.toLowerCase() !== name.toLowerCase());
-    const r = await act('config:update', { giftCatalog: [...cat, { id: 'manuel-' + name.toLowerCase().replace(/\s+/g, '-'), name, diamonds, image: '' }] }, 'Cadeau ajouté');
-    if (r.ok) { $('man-name').value = ''; $('man-dia').value = ''; catalogKey = ''; }
+  $('save-rules').onclick = async () => {
+    const dups = rulesDraft.filter((r, i) => rulesDraft.findIndex((x) => gkey(x.name) === gkey(r.name)) !== i);
+    if (dups.length) return toast(`⚠️ ${dups[0].name} est lié deux fois : retire une des lignes`);
+    const patch = { giftRules: rulesDraft };
+    if (extraGifts.length) patch.giftCatalog = [...(st.config.giftCatalog || []), ...extraGifts];
+    const r = await act('config:update', patch, 'Cadeaux enregistrés ✅');
+    if (r.ok) { rulesLoaded = false; extraGifts = []; }
   };
-  let catalogKey = '';
-
-  $('add-rule').onclick = () => { rulesDraft.push({ name: '', minDiamonds: 0, maxDiamonds: 0, action: 'shake', param: 1 }); renderRules(); };
-  $('save-rules').onclick = async () => { const r = await act('config:update', { giftRules: rulesDraft }, 'Cadeaux enregistrés ✅'); if (r.ok) rulesLoaded = false; };
 
   // ---------- Copie des réglages sur le téléphone ----------
   // Render gratuit efface les fichiers à chaque redémarrage : on garde une copie locale et on propose de la restaurer.
@@ -220,7 +218,7 @@
   $('restore-yes').onclick = async () => {
     const b = readBackup(); if (!b) return;
     const r = await act('config:update', b, 'Réglages restaurés ✅');
-    if (r.ok) { settingsLoaded = false; rulesLoaded = false; catalogKey = ''; $('restore').classList.add('hidden'); }
+    if (r.ok) { settingsLoaded = false; rulesLoaded = false; $('restore').classList.add('hidden'); }
   };
   $('restore-no').onclick = () => { restoreDismissed = true; $('restore').classList.add('hidden'); };
 
@@ -246,22 +244,15 @@
       else if (e === 'leave') simEvent({ type: 'leave' });
     };
   });
-  // Boutons de pouvoirs : envoient le cadeau correspondant à la première règle qui déclenche cet effet.
-  document.querySelectorAll('[data-power]').forEach((b) => {
-    b.onclick = () => {
-      const r = st?.config.giftRules.find((x) => x.action === b.dataset.power);
-      if (!r) return toast('Aucun cadeau n\'est réglé pour cet effet (onglet Cadeaux)');
-      simEvent({ type: 'gift', giftName: r.name || 'Cadeau test', diamondCount: r.name ? 1 : r.minDiamonds, repeatCount: 1 });
-    };
-  });
   $('peaceful').onchange = async (e) => {
     const r = await act('config:update', { peaceful: e.target.checked }, e.target.checked ? '🕊️ Mode paisible activé' : 'Pouvoirs réactivés');
     if (r.ok) settingsLoaded = false;
   };
   $('send-gift').onclick = () => {
-    const name = $('gift-name').value.trim();
-    const g = (st?.config.giftCatalog || []).find((x) => x.name.toLowerCase() === name.toLowerCase());
-    simEvent({ type: 'gift', giftName: name, giftId: g ? g.id : '', diamondCount: g ? g.diamonds : Number($('gift-diamonds').value), repeatCount: Number($('gift-count').value) || 1 });
+    const r = rulesDraft[Number($('sim-gift').value)];
+    if (!r) return toast('Lie d\'abord un cadeau (onglet Cadeaux)');
+    const g = giftInfo(r);
+    simEvent({ type: 'gift', giftName: g.name || r.name, giftId: r.giftId, diamondCount: g.diamonds || 0, repeatCount: Number($('gift-count').value) || 1 });
   };
 
   // ---------- Mise à jour de l'état ----------
@@ -291,9 +282,11 @@
     const opts = s.players.map((p) => `<option value="${esc(p.id)}">${esc(p.nickname)} (🪙${p.tokens})</option>`).join('');
     if (sel.dataset.h !== opts) { sel.innerHTML = opts; sel.dataset.h = opts; if (cur) sel.value = cur; }
     if (!settingsLoaded) { renderSettings(s.config); settingsLoaded = true; }
-    if (!rulesLoaded) { rulesDraft = JSON.parse(JSON.stringify(s.config.giftRules)); renderRules(); rulesLoaded = true; catalogKey = ''; }
-    const ck = (s.config.giftCatalog || []).length + ':' + (s.config.giftCatalog || []).map((g) => g.id).join(',').length;
-    if (ck !== catalogKey) { catalogKey = ck; renderCatalog(); $('gift-names').innerHTML = (s.config.giftCatalog || []).map((g) => `<option value="${esc(g.name)}">💎 ${g.diamonds}</option>`).join(''); }
+    if (!rulesLoaded) { rulesDraft = JSON.parse(JSON.stringify(s.config.giftRules)); renderLinks(); rulesLoaded = true; }
+    const ck = (s.config.giftCatalog || []).map((g) => g.id + (g.image ? '*' : '')).join(',');
+    if (ck !== catalogKey) { catalogKey = ck; renderLinks(); } // nouveaux cadeaux reçus ou chargés : menus à jour
+    const simOpts = rulesDraft.map((r, i) => { const e = (s.effects || []).find((x) => x.action === r.action && String(x.param) === String(r.param)); return `<option value="${i}">${esc(r.name)} → ${e ? e.icon + ' ' + esc(e.label) : esc(r.action)}</option>`; }).join('');
+    if ($('sim-gift').dataset.h !== simOpts) { const v = $('sim-gift').value; $('sim-gift').innerHTML = simOpts; $('sim-gift').dataset.h = simOpts; if (v) $('sim-gift').value = v; }
     if (s.configCustomized) { writeBackup(s.config); $('restore').classList.add('hidden'); }
     else $('restore').classList.toggle('hidden', restoreDismissed || !readBackup());
   });

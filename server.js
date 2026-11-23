@@ -15,6 +15,7 @@ const { Machine, STEP_MS, W, D, SLOT_X } = require('./src/machine');
 const { TikTokSource } = require('./src/tiktok');
 const { Simulator } = require('./src/simulator');
 const { rewardsList } = require('./src/rewards');
+const { effectsList } = require('./src/effects');
 
 const PORT = Number(process.env.PORT) || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
@@ -126,6 +127,7 @@ setInterval(() => {
     if (!running) continue;
     const fallen = machine.step(STEP_MS);
     for (const f of fallen) game.onFall(f, Date.now(), { side: f.side });
+    for (const e of machine.events.splice(0)) io.to('display').emit('fx', { type: 'spawn', item: e.item, by: null });
     stepCount++;
     perf.steps++;
     if (stepCount % 3 === 0) io.to('display').volatile.emit('snap', machine.snapshot()); // 20 fois par seconde
@@ -159,7 +161,7 @@ function controlState() {
   return {
     config, stats: game.controlStats(), players: game.playersList().slice(0, 100), status: game.status,
     live: tiktok.status, simAuto: sim.auto, log: log.slice(-25), objects: machine.objects.size,
-    version: VERSION, simSpeed: perf.simSpeed, cpu: perf.cpu,
+    version: VERSION, simSpeed: perf.simSpeed, cpu: perf.cpu, effects: effectsList(config),
     hasSignKey: !!process.env.TIKTOK_SIGN_API_KEY, passwordSet: !!ADMIN_PASSWORD, configCustomized,
   };
 }
@@ -169,6 +171,7 @@ function initPayload() {
     W, D, slotX: SLOT_X,
     items: config.items.map((i) => ({ key: i.key, kind: i.kind, points: i.points, pointsMax: i.pointsMax, color: i.color, label: i.label })),
     sounds: config.sounds, music: config.music, musicVolume: config.musicVolume, sfxVolume: config.sfxVolume,
+    leaderVoice: config.leaderVoice,
     showRewards: config.showRewards, rewardsSeconds: config.rewardsSeconds, rewards: rewardsList(config),
   };
 }

@@ -58,7 +58,7 @@ Limites de l'offre gratuite (à revérifier sur render.com/docs/free) :
 - Cadeaux configurables : rose = secousse, et par valeur en diamants : passer devant, pluie de jetons, gemmes, coffre (valeurs **proposées**, à trancher).
 - Classement du live, file d'attente, gains affichés « +200 @pseudo », écran d'attente quand personne ne joue.
 - Application de contrôle : Live, Réglages, Cadeaux, Simulateur, Aperçu, statistiques, journal.
-- Catalogue des cadeaux TikTok (chargé depuis TikTok, complété par les cadeaux reçus ou ajouté à la main) : un effet au choix pour chaque cadeau.
+- Onglet Cadeaux : liaisons « cadeau TikTok → effet » ajoutées une par une (liste de cadeaux courants, cadeaux reçus en live, chargement complet avec l'offre payante d'Euler Stream, ou nom saisi à la main). Les effets viennent de `src/effects.js` : un nouveau pouvoir y apparaît automatiquement.
 - Bruitages de pièces (tintements synthétisés) et musique d'ambiance calme générée par le jeu : originaux, donc libres de droits ; volumes réglables.
 - Vitesse du jeu et charge du serveur affichées dans l'onglet Live, avec la version déployée.
 - Copie des réglages dans le téléphone (onglet contrôle) et proposition de restauration quand le serveur a redémarré sans ses fichiers (Render gratuit).

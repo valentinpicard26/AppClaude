@@ -18,7 +18,7 @@ canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block;
 .hidden { display: none !important; }
 
 #turn {
-  position: absolute; left: 12%; right: 12%; top: 19.2%;
+  position: absolute; left: 12%; right: 12%; top: 17.3%;
   text-align: center; padding: 0.25em 0.6em 0.35em; border-radius: 0.8em;
   background: linear-gradient(180deg, rgba(60, 0, 12, 0.92), rgba(25, 0, 5, 0.92));
   border: 2px solid var(--gold); box-shadow: 0 0 1em rgba(255, 42, 61, 0.7), inset 0 0 0.6em rgba(255, 211, 77, 0.25);
@@ -50,10 +50,13 @@ canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block;
 .panel { flex: 1 1 0; min-width: 0; background: var(--panel); border: 1.5px solid rgba(255, 211, 77, 0.7); border-radius: 0.7em; padding: 0.35em 0.55em; min-height: 6.2em; }
 .panel h3 { margin: 0 0 0.2em; font-size: 0.62em; color: var(--gold); letter-spacing: 0.02em; }
 .panel ol { margin: 0; padding: 0; list-style: none; font-family: system-ui, sans-serif; font-weight: 800; font-size: 0.6em; }
-.panel li { display: flex; justify-content: space-between; gap: 0.4em; padding: 0.08em 0; white-space: nowrap; }
-.panel li .n { overflow: hidden; text-overflow: ellipsis; }
+.panel li { display: flex; justify-content: space-between; align-items: center; gap: 0.4em; padding: 0.12em 0; white-space: nowrap; }
+.panel li .n { display: flex; align-items: center; gap: 0.3em; min-width: 0; }
+.panel li .n .m { flex: none; }
+.panel li .n .t { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.panel li .v { flex: none; }
 .panel li .v { color: var(--gold); }
-.panel li.boost .n::before { content: "⚡"; }
+.panel li.boost .n .m::after { content: "⚡"; }
 #board li:first-child .n { color: var(--gold); }
 #rewards { position: absolute; left: 3%; right: 3%; top: 38.6%; min-height: 2.6em; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: rgba(20,0,6,0.82); border: 1.5px solid rgba(255,211,77,0.7); border-radius: 0.8em; padding: 0.2em 0.5em; font-family: system-ui, sans-serif; font-weight: 800; font-size: 0.66em; color: #fff; overflow: hidden; }
 #rw-line { display: flex; align-items: center; justify-content: center; gap: 0.45em; animation: rwIn 0.45s ease-out; }
@@ -79,3 +82,32 @@ canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block;
 .ann.tokens { background: linear-gradient(180deg, #fff1a6, #ffc21a); color: #3a2000; }
 .rw-title { font-size: 0.72em; color: var(--gold); letter-spacing: 0.04em; opacity: 0.85; margin-bottom: 0.05em; }
 #rewards { font-size: 0.74em; box-shadow: 0 0 0.8em rgba(255, 42, 61, 0.45); }
+.av { display: inline-block; flex: none; width: 1.5em; height: 1.5em; border-radius: 50%; object-fit: cover; vertical-align: middle; margin-right: 0.3em; border: 1.5px solid var(--gold); background: #2a0010; }
+.av-i { display: inline-grid; place-items: center; font: 800 0.75em system-ui, sans-serif; color: #fff; line-height: 1; }
+.panel .av { margin-right: 0; }
+.panel .av-i { font-size: 0.85em; width: 1.75em; height: 1.75em; }
+#turn-name { display: inline-flex; align-items: center; gap: 0.25em; }
+#turn-name .av { margin-right: 0; }
+#turn-name .av { width: 1.15em; height: 1.15em; }
+.av-i { position: relative; overflow: hidden; }
+.av-i img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+/* « Félicitations » au premier du classement */
+#celebrate { position: absolute; left: 16%; right: 16%; top: 42%; text-align: center; padding: 0.45em 0.4em 0.55em; border-radius: 1em; font-size: 0.78em;
+  background: radial-gradient(ellipse at 50% 30%, rgba(90, 0, 20, 0.5), rgba(25, 0, 6, 0.5)); border: 2px solid var(--gold);
+  box-shadow: 0 0 2.5em rgba(255, 211, 77, 0.9), inset 0 0 1.5em rgba(255, 42, 61, 0.5); z-index: 5; }
+#celebrate.show { animation: celIn 0.45s cubic-bezier(.2, 1.6, .4, 1); }
+#celebrate.out { opacity: 0; transform: scale(0.85); transition: opacity 0.3s, transform 0.3s; }
+.cel-title { font-size: 1.55em; color: var(--gold); text-shadow: 0 0 0.4em var(--red), 0 0.08em 0 #3a0008; letter-spacing: 0.03em; }
+#cel-av .av { width: 4.2em; height: 4.2em; font-size: 1em; margin: 0.35em auto 0.2em; border-width: 3px; display: grid; box-shadow: 0 0 1em rgba(255, 211, 77, 0.8); }
+#cel-av .av-i { font-size: 1.6em; width: 2.6em; height: 2.6em; }
+#cel-name { font-size: 1.5em; color: #fff; text-shadow: 0 0 0.4em var(--red); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cel-sub { font-family: system-ui, sans-serif; font-weight: 800; font-size: 0.75em; color: #ffd0d6; margin-top: 0.15em; }
+@keyframes celIn { from { transform: scale(0.3) rotate(-4deg); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Médaillons du classement */
+.medal { flex: none; display: inline-grid; place-items: center; width: 1.45em; height: 1.45em; border-radius: 50%; font: 900 0.82em "Arial Black", Arial, sans-serif; color: #3a2200;
+  box-shadow: inset 0 0 0 0.12em rgba(255, 255, 255, 0.35), inset 0 -0.15em 0.2em rgba(0, 0, 0, 0.35), 0 0 0.35em rgba(0, 0, 0, 0.5); }
+.medal.gold { background: radial-gradient(circle at 35% 30%, #fff6b0, #ffd34d 45%, #c98a00); }
+.medal.silver { background: radial-gradient(circle at 35% 30%, #ffffff, #d4d8de 45%, #8c939c); color: #2b2f36; }
+.medal.bronze { background: radial-gradient(circle at 35% 30%, #ffd6ad, #d08a4d 45%, #8a4f1f); color: #2e1500; }

@@ -72,3 +72,15 @@ nav button.on { color: var(--gold); }
 .gift.set { background: #2c0d14; }
 .gift .bydefault { font-size: 12px; color: var(--muted); }
 .manual summary { cursor: pointer; color: var(--muted); margin: 8px 0; }
+.links { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 12px; }
+.link-row { display: grid; grid-template-columns: 44px 1fr 36px; gap: 6px 8px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: #12030a; }
+.link-row img, .link-row .noimg { width: 44px; height: 44px; object-fit: contain; grid-row: 1 / span 2; display: grid; place-items: center; font-size: 24px; }
+.link-row select { width: 100%; margin: 0; padding: 8px; font-size: 14px; }
+.link-row select[data-gift] { font-weight: 700; }
+.link-row .arrow { display: none; }
+.link-row .del { grid-column: 3; grid-row: 1 / span 2; padding: 6px; background: none; border: 0; font-size: 18px; }
+.link-row.dup { border-color: #ff8a8a; }
+.pick { display: flex; align-items: center; gap: 10px; padding: 8px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.pick img, .pick .noimg { width: 34px; height: 34px; object-fit: contain; display: grid; place-items: center; }
+.pick small { color: var(--muted); margin-left: auto; }
+button.link { background: none; border: 0; color: var(--gold); padding: 0; text-decoration: underline; font-size: 13px; }

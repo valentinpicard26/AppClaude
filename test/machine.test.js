@@ -72,3 +72,16 @@ test('sauvegarde et reprise des positions', () => {
   m2.restore(data);
   assert.equal(m2.objects.size, m.objects.size);
 });
+
+test('les pierres précieuses apparaissent d\'elles-mêmes, sans dépasser le maximum', () => {
+  const m = new Machine({ ...defaultConfig(), gemEverySeconds: 5, maxGemsOnPlate: 2 }, { random: rng(9) });
+  m.prefill();
+  assert.equal(m.countKind('gem'), 0);
+  let spawned = 0;
+  for (let i = 0; i < 60 * 60; i++) { m.step(STEP_MS); spawned += m.events.splice(0).length; assert.ok(m.countKind('gem') <= 2); }
+  assert.ok(spawned >= 1);
+  const off = new Machine({ ...defaultConfig(), gemEverySeconds: 0 }, { random: rng(9) });
+  off.prefill();
+  for (let i = 0; i < 60 * 60; i++) off.step(STEP_MS);
+  assert.equal(off.countKind('gem'), 0);
+});
