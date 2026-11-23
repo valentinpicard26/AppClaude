@@ -30,9 +30,18 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: false } });
 
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
+// Version déployée (Render fournit le commit) : affichée dans le contrôle pour vérifier une mise à jour.
+const VERSION = (process.env.RENDER_GIT_COMMIT || '').slice(0, 7) || 'local';
+// Pages, scripts et styles : toujours revalidés (sinon le téléphone garde l'ancienne version en cache).
+// Images : gardées en cache 1 jour.
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res, file) {
+    if (/\.(png|jpe?g|webp)$/i.test(file)) res.setHeader('Cache-Control', 'public, max-age=86400');
+    else res.setHeader('Cache-Control', 'no-cache');
+  },
+}));
 app.get('/control', (req, res) => res.sendFile(path.join(__dirname, 'public', 'control.html')));
-app.get('/health', (req, res) => res.json({ ok: true }));
+app.get('/health', (req, res) => res.json({ ok: true, version: VERSION, simSpeed: perf.simSpeed, cpu: perf.cpu }));
 
 // ---------- Moteur ----------
 const machine = new Machine(config);
@@ -115,7 +124,8 @@ setInterval(() => {
     const fallen = machine.step(STEP_MS);
     for (const f of fallen) game.onFall(f, Date.now(), { side: f.side });
     stepCount++;
-    if (stepCount % 2 === 0) io.to('display').volatile.emit('snap', machine.snapshot());
+    perf.steps++;
+    if (stepCount % 3 === 0) io.to('display').volatile.emit('snap', machine.snapshot()); // 20 fois par seconde
   }
   const now = Date.now();
   game.update(now);
@@ -131,10 +141,22 @@ setInterval(() => {
   io.to('control').emit('control:state', controlState());
 }, 1000);
 
+// Mesures de santé : vitesse de la simulation (1 = temps réel) et charge processeur du serveur.
+const perf = { steps: 0, simSpeed: 1, cpu: 0, lastAt: Date.now(), lastCpu: process.cpuUsage() };
+setInterval(() => {
+  const now = Date.now();
+  const cpu = process.cpuUsage(perf.lastCpu);
+  const dt = now - perf.lastAt;
+  perf.simSpeed = game.status === 'running' ? Math.round((perf.steps * STEP_MS / dt) * 100) / 100 : 1;
+  perf.cpu = Math.round(((cpu.user + cpu.system) / 1000 / dt) * 1000) / 10; // % d'un processeur
+  perf.steps = 0; perf.lastAt = now; perf.lastCpu = process.cpuUsage();
+}, 5000);
+
 function controlState() {
   return {
     config, stats: game.controlStats(), players: game.playersList().slice(0, 100), status: game.status,
     live: tiktok.status, simAuto: sim.auto, log: log.slice(-25), objects: machine.objects.size,
+    version: VERSION, simSpeed: perf.simSpeed, cpu: perf.cpu,
     hasSignKey: !!process.env.TIKTOK_SIGN_API_KEY, passwordSet: !!ADMIN_PASSWORD, configCustomized,
   };
 }
@@ -143,7 +165,7 @@ function initPayload() {
   return {
     W, D, slotX: SLOT_X,
     items: config.items.map((i) => ({ key: i.key, kind: i.kind, points: i.points, pointsMax: i.pointsMax, color: i.color, label: i.label })),
-    sounds: config.sounds,
+    sounds: config.sounds, music: config.music, musicVolume: config.musicVolume, sfxVolume: config.sfxVolume,
   };
 }
 

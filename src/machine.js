@@ -72,7 +72,7 @@ class Machine {
     const def = this.itemDef(key);
     const kind = def ? def.kind : 'coin';
     const common = {
-      frictionAir: 0.12, friction: 0.08, restitution: 0.05, angle,
+      frictionAir: 0.05, friction: 0.08, restitution: 0.05, angle,
       collisionFilter: { category: CAT_OBJ, mask: CAT_WALL | CAT_OBJ },
     };
     switch (kind) {
@@ -154,7 +154,7 @@ class Machine {
   }
 
   kick(scale) {
-    const I = this.config.shakeIntensity * 0.35 * scale;
+    const I = this.config.shakeIntensity * 0.18 * scale;
     for (const o of this.objects.values()) {
       if (o.landAt > this.time) continue;
       const b = o.body;
@@ -169,21 +169,29 @@ class Machine {
   // Remplit le plateau au démarrage (jetons + tickets), sans chevauchement.
   prefill() {
     for (const o of [...this.objects.values()]) this.removeObject(o);
-    const yMin = this.config.pusherStroke * 0.4 + COIN_R + 2;
-    const yMax = D - COIN_R - 6;
-    let placed = 0;
-    for (let tries = 0; placed < this.config.coinsOnPlate && tries < 6000; tries++) {
-      // Densité plus forte près du bord : c'est ce qui crée le suspense.
-      const u = Math.sqrt(this.random());
-      const x = COIN_R + 2 + this.random() * (W - 2 * COIN_R - 4);
-      const y = yMin + u * (yMax - yMin);
-      if (!this.isFree(x, y, COIN_R)) continue;
-      this.addObject('coin', x, y);
-      placed++;
-    }
+    // Tickets d'abord, puis un tapis de jetons serré (grille en quinconce) depuis le bord avant vers le fond :
+    // comme dans une vraie machine, chaque poussée déplace tout le tapis et fait déborder le bord.
     for (let i = 0; i < this.config.ticketsOnPlate; i++) this.addTicket(false);
-    // Laisse la pile se stabiliser, sans compter ce qui tomberait.
-    for (let i = 0; i < 30; i++) this.step(STEP_MS, { settle: true });
+    const yMin = this.config.pusherStroke * 0.35 + COIN_R + 2;
+    const dx = 2 * COIN_R + 1.5;
+    const dy = dx * 0.87;
+    let placed = 0;
+    for (let row = 0; placed < this.config.coinsOnPlate; row++) {
+      const y = D - COIN_R - 4 - row * dy;
+      if (y < yMin) break;
+      const off = (row % 2) * dx / 2;
+      for (let x = COIN_R + 3 + off; x <= W - COIN_R - 3 && placed < this.config.coinsOnPlate; x += dx) {
+        const jx = x + (this.random() - 0.5) * 3, jy = y + (this.random() - 0.5) * 3;
+        if (!this.isFree(jx, jy, COIN_R)) continue;
+        this.addObject('coin', jx, jy);
+        placed++;
+      }
+    }
+    // Fait tourner le poussoir deux allers-retours sans compter ce qui tombe : le tapis se tasse
+    // et se retrouve « au bord de la chute », si bien que les premiers lancers font déjà tomber des objets.
+    const settleSteps = Math.round((2 * this.config.pusherPeriodSeconds * 1000) / STEP_MS);
+    for (let i = 0; i < settleSteps; i++) this.step(STEP_MS, { settle: true });
+    while (this.countKind('ticket') < this.config.ticketsOnPlate) if (!this.addTicket(false)) break;
   }
 
   pickTicketKey() {
@@ -266,7 +274,7 @@ class Machine {
       const p = o.body.position;
       const inGapZone = p.y > D * (1 - this.config.sideGapRatio);
       let side = null;
-      if (p.y > D + 2) side = false;
+      if (p.y > D) side = false; // le centre a passé le bord : l'objet bascule
       else if (inGapZone && (p.x < -8 || p.x > W + 8)) side = true;
       if (side !== null) {
         if (!settle) fallen.push({ id: o.id, key: o.key, side, x: p.x, y: p.y, angle: o.body.angle });

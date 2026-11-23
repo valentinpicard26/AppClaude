@@ -1,10 +1,10 @@
-# Déploiement Render (Blueprint) : offre gratuite, pour tester.
+# Déploiement Render (Blueprint) : site de TEST, séparé du site stable (tiktok-pieces).
 services:
   - type: web
-    name: tiktok-pieces
+    name: tiktok-pieces-test
     runtime: node
     plan: free
-    branch: claude/app-fonctionnelle-initiale-1v3pxk
+    branch: claude/corrections-sons-images
     buildCommand: npm ci
     startCommand: npm start
     healthCheckPath: /health

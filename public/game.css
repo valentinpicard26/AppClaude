@@ -64,3 +64,4 @@ canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block;
 @keyframes glow { from { box-shadow: 0 0 0.4em rgba(255, 42, 61, 0.5); } to { box-shadow: 0 0 1.4em rgba(255, 211, 77, 0.9); } }
 @keyframes tickIn { from { transform: translateY(-0.5em); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes annIn { from { transform: scale(0.3); opacity: 0; } to { transform: none; opacity: 1; } }
+#sound-hint { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); background: rgba(0,0,0,0.75); border: 1px solid var(--gold); color: #fff; padding: 8px 14px; border-radius: 12px; font: 700 14px system-ui, sans-serif; white-space: nowrap; animation: glow 1.4s infinite alternate; }

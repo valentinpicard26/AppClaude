@@ -30,7 +30,11 @@
     cristal: 'cristal.png', coffre: 'coffre.png',
   };
   const itemImg = {};
-  for (const [key, file] of Object.entries(ITEM_FILES)) { const i = new Image(); i.src = 'assets/' + file; itemImg[key] = i; }
+  for (const [key, file] of Object.entries(ITEM_FILES)) {
+    const i = new Image();
+    i.onerror = () => { i.failed = true; buildSprites(); }; // image absente : dessin de remplacement
+    i.src = 'assets/' + file; itemImg[key] = i;
+  }
   const sprites = {}; // sprites générés (tickets sans image, gemmes, coffre)
 
   // ---------- Mise en page ----------
@@ -60,12 +64,13 @@
   // ---------- Réseau ----------
   const socket = io({ transports: ['websocket', 'polling'] });
   const snaps = []; // { t, p, s, o: Map }
-  let lastRecv = 0, lastT = 0;
+  let lastRecv = 0, lastT = 0, jitter = 60;
   let state = null;
   socket.on('connect', () => { $('offline').classList.add('hidden'); socket.emit('display:hello'); });
   socket.on('disconnect', () => $('offline').classList.remove('hidden'));
   socket.on('init', (d) => {
     W = d.W; D = d.D; sounds = d.sounds;
+    window.TPAudio.setOptions({ sounds: d.sounds, music: d.music, musicVolume: d.musicVolume, sfxVolume: d.sfxVolume });
     items = {}; for (const it of d.items) items[it.key] = it;
     buildSprites();
   });
@@ -74,8 +79,12 @@
     for (const o of s.o) map.set(o[0], { id: o[0], key: o[1], x: o[2], y: o[3], a: o[4], air: o[5], label: o[6] });
     if (snaps.length && s.t < snaps[snaps.length - 1].t) snaps.length = 0; // remise à zéro de l'horloge
     snaps.push({ t: s.t, p: s.p, s: s.s, o: map });
-    if (snaps.length > 12) snaps.shift();
-    lastRecv = performance.now(); lastT = s.t;
+    if (snaps.length > 20) snaps.shift();
+    // Sur un petit serveur, les positions arrivent par paquets : on mesure l'écart entre deux arrivées
+    // et on affiche avec un léger retard adapté, pour que le mouvement reste fluide au lieu de sauter.
+    const nowR = performance.now();
+    if (lastRecv) { const gap = nowR - lastRecv; jitter = Math.max(gap, jitter * 0.995); }
+    lastRecv = nowR; lastT = s.t;
   });
   socket.on('state', (s) => { state = s; renderHud(); });
   socket.on('fx', onFx);
@@ -83,7 +92,7 @@
   // ---------- Sprites dessinés ----------
   function buildSprites() {
     for (const it of Object.values(items)) {
-      if (itemImg[it.key]) { sprites[it.key] = itemImg[it.key]; continue; }
+      if (itemImg[it.key] && !itemImg[it.key].failed) { sprites[it.key] = itemImg[it.key]; continue; }
       // Sans image fournie : dessin de remplacement
       if (it.kind === 'ticket') sprites[it.key] = drawTicket(it);
       if (it.kind === 'gem') sprites[it.key] = drawGem(it.color);
@@ -186,7 +195,7 @@
         const p = proj(e.x ?? W / 2, D);
         floats.push({ x: Math.max(130, Math.min(IW - 130, p.x)), y: FRONT_Y - 30, t0: performance.now(), text: '+' + fmt(e.points), who: e.player ? '@' + e.player : '', big });
         if (big) burst(p.x, FRONT_Y - 40, 40);
-        sfx(big ? 'big' : 'coin');
+        sfx(big ? 'big' : 'fall');
         break;
       }
       case 'lost': {
@@ -196,6 +205,7 @@
       }
       case 'launch': {
         sfx('launch');
+        setTimeout(() => sfx('land'), 450); // le jeton se pose sur le plateau
         const n = state?.commands || ['1', '2', '3'];
         if (e.deviatedFrom !== null && e.deviatedFrom !== undefined) {
           announce(`↪️ Jeton dévié : fente ${n[e.deviatedFrom]} → ${n[e.slot]}&nbsp;!`, 'red');
@@ -258,26 +268,8 @@
     setTimeout(() => { if (el.parentNode) el.remove(); }, 3200);
   }
 
-  // ---------- Sons (générés, donc originaux) ----------
-  let actx = null;
-  function sfx(kind) {
-    if (!sounds || !actx) return;
-    const t = actx.currentTime;
-    const tone = (f, d, type = 'square', v = 0.06, f2) => {
-      const o = actx.createOscillator(), g = actx.createGain();
-      o.type = type; o.frequency.setValueAtTime(f, t);
-      if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
-      g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
-      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d);
-    };
-    if (kind === 'coin') { tone(1320, 0.08, 'square', 0.04); setTimeout(() => tone(1760, 0.12, 'square', 0.04), 70); }
-    else if (kind === 'big') { [880, 1100, 1320, 1760].forEach((f, i) => setTimeout(() => tone(f, 0.18, 'triangle', 0.07), i * 90)); }
-    else if (kind === 'launch') tone(600, 0.15, 'triangle', 0.05, 200);
-    else if (kind === 'shake') tone(90, 0.5, 'sawtooth', 0.06, 50);
-    else if (kind === 'turn') tone(660, 0.1, 'sine', 0.05, 990);
-    else if (kind === 'power') { tone(220, 0.25, 'sawtooth', 0.06, 110); setTimeout(() => tone(160, 0.3, 'square', 0.05, 80), 120); }
-    else if (kind === 'shield') { tone(520, 0.3, 'sine', 0.06, 1040); setTimeout(() => tone(780, 0.3, 'sine', 0.05), 120); }
-  }
+  // ---------- Sons : voir audio.js (synthétisés, donc originaux) ----------
+  function sfx(kind) { window.TPAudio.sfx(kind); }
 
   // ---------- Interface (HTML) ----------
   function renderHud() {
@@ -318,7 +310,7 @@
   function interp() {
     if (!snaps.length) return null;
     const est = lastT + (performance.now() - lastRecv);
-    const rt = est - 70;
+    const rt = est - Math.min(400, Math.max(70, jitter + 30));
     let a = snaps[0], b = snaps[snaps.length - 1];
     for (let i = snaps.length - 1; i > 0; i--) { if (snaps[i - 1].t <= rt) { a = snaps[i - 1]; b = snaps[i]; break; } }
     const span = b.t - a.t;
@@ -520,7 +512,7 @@
   // ---------- Plein écran, écran allumé, son ----------
   let wakeLock = null;
   async function goFull() {
-    try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); } catch { /* pas de son */ }
+    if (window.TPAudio.unlock()) $('sound-hint').classList.add('hidden');
     try { if (!document.fullscreenElement && document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); } catch { /* iOS : utiliser "Ajouter à l'écran d'accueil" */ }
     try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch { /* refusé */ }
   }
